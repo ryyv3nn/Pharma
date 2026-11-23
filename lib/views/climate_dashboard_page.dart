@@ -768,6 +768,9 @@ class ClimateDashboardPage extends StatelessWidget {
     required SensorModel s,
     required SensorProvider p,
   }) {
+    // Status pintu gudang utama dikendalikan oleh sensor di Node 2 (atau jika node 1 juga mendeteksi)
+    final bool isDoorOpen = p.device2Data.isPintuTerbuka || s.isPintuTerbuka;
+
     return Column(
       children: [
         Row(
@@ -800,14 +803,14 @@ class ClimateDashboardPage extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.md),
-        // Door Security Bar
+        // Door Security Bar (Tersinkronisasi dengan status pintu fisik/simulasi Node 2)
         Material(
           color: Colors.transparent,
           child: InkWell(
             onTap: () {
               AppToast.info(
                 context,
-                s.isPintuTerbuka
+                isDoorOpen
                     ? 'Sensor Pintu: Terbuka! Periksa fisik gudang atau simulasi web.'
                     : 'Sensor Pintu: Terkunci rapat dan aman.',
               );
@@ -816,10 +819,10 @@ class ClimateDashboardPage extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 11),
               decoration: BoxDecoration(
-                color: s.isPintuTerbuka ? AppColors.alertRed.withAlpha(16) : AppColors.cardWhite,
+                color: isDoorOpen ? AppColors.alertRed.withAlpha(16) : AppColors.cardWhite,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 border: Border.all(
-                  color: s.isPintuTerbuka ? AppColors.alertRed.withAlpha(70) : AppColors.containerLow,
+                  color: isDoorOpen ? AppColors.alertRed.withAlpha(70) : AppColors.containerLow,
                   width: 1.0,
                 ),
                 boxShadow: const [
@@ -835,12 +838,12 @@ class ClimateDashboardPage extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(7),
                     decoration: BoxDecoration(
-                      color: (s.isPintuTerbuka ? AppColors.alertRed : AppColors.activeGreen).withAlpha(22),
+                      color: (isDoorOpen ? AppColors.alertRed : AppColors.activeGreen).withAlpha(22),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
-                      s.isPintuTerbuka ? Icons.door_sliding_outlined : Icons.lock_outline_rounded,
-                      color: s.isPintuTerbuka ? AppColors.alertRed : AppColors.activeGreen,
+                      isDoorOpen ? Icons.door_sliding_outlined : Icons.lock_outline_rounded,
+                      color: isDoorOpen ? AppColors.alertRed : AppColors.activeGreen,
                       size: 18,
                     ),
                   ),
@@ -859,11 +862,11 @@ class ClimateDashboardPage extends StatelessWidget {
                         ),
                         const SizedBox(height: 1),
                         Text(
-                          s.isPintuTerbuka ? 'Terbuka • Perlu Ditutup' : 'Terkunci Rapat',
+                          isDoorOpen ? 'Terbuka • Perlu Ditutup' : 'Terkunci Rapat',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: s.isPintuTerbuka ? AppColors.alertRed : AppColors.textMuted,
+                            color: isDoorOpen ? AppColors.alertRed : AppColors.textMuted,
                           ),
                         ),
                       ],
@@ -872,15 +875,15 @@ class ClimateDashboardPage extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: (s.isPintuTerbuka ? AppColors.alertRed : AppColors.activeGreen).withAlpha(20),
+                      color: (isDoorOpen ? AppColors.alertRed : AppColors.activeGreen).withAlpha(20),
                       borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                     ),
                     child: Text(
-                      s.isPintuTerbuka ? 'TERBUKA' : 'TERKUNCI',
+                      isDoorOpen ? 'TERBUKA' : 'TERKUNCI',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w800,
-                        color: s.isPintuTerbuka ? AppColors.alertRed : AppColors.activeGreen,
+                        color: isDoorOpen ? AppColors.alertRed : AppColors.activeGreen,
                       ),
                     ),
                   ),

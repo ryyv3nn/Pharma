@@ -58,7 +58,8 @@ DB_CONFIG = {
     "password": "fabian100607",
     "database": "pbl_db",
     "pool_name": "mypool",
-    "pool_size": 5
+    "pool_size": 5,
+    "time_zone": "+07:00"
 }
 
 try:
@@ -71,13 +72,15 @@ except Exception as e:
 # fungsi jatuh ke koneksi langsung supaya layanan tetap hidup untuk diagnosis.
 def get_db():
     if db_pool:
-        return db_pool.get_connection()
+        conn = db_pool.get_connection()
+        return conn
     return mysql.connector.connect(
         host=DB_HOST,
         port=3306,
         user="root",
         password="fabian100607",
-        database="pbl_db"
+        database="pbl_db",
+        time_zone="+07:00"
     )
 
 # ---------- Auth ----------

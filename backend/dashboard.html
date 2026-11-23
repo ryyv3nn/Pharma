@@ -808,8 +808,19 @@
 
     .telemetry-grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr) 1.2fr;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 14px;
+    }
+
+    .telemetry-grid-dev2 .gauge-row {
+      min-height: 47px;
+    }
+
+    .telemetry-grid-dev2 .metric-value {
+      font-size: clamp(20px, 1.8vw, 25px);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .metric-card {
@@ -1250,7 +1261,7 @@
     }
 
     @media (max-width: 1100px) {
-      .node-grid, .telemetry-grid { grid-template-columns: repeat(2, 1fr); }
+      .node-grid, .telemetry-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .workbench { grid-template-columns: 1fr; }
       .inspector { position: static; }
     }
@@ -1258,7 +1269,7 @@
     @media (max-width: 768px) {
       body { grid-template-columns: 1fr; }
       .sidebar { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
-      .node-grid, .telemetry-grid { grid-template-columns: 1fr; }
+      .node-grid, .telemetry-grid { grid-template-columns: minmax(0, 1fr); }
     }
 
     .btn-danger {
@@ -1791,6 +1802,81 @@
           <div class="metric-foot">
             <span>Standar: &lt; 300 Lux</span>
             <span id="valAvgLux" class="mono">Avg: --</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Baris Kedua: Telemetry Cards Khusus Device 2 (Keamanan & Sterilisasi UV-C) -->
+      <section class="telemetry-grid telemetry-grid-dev2">
+        <div class="metric-card">
+          <svg class="card-watermark"><use href="#vec-botanic"/></svg>
+          <div class="metric-top">
+            <div class="metric-label-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-bright)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              <span class="metric-label">PINTU AKSES</span>
+            </div>
+            <span id="badgeDev2Door" class="badge badge-ok">Aman</span>
+          </div>
+          <div class="gauge-row">
+            <div id="valDev2Door" class="metric-value mono">Terkunci</div>
+          </div>
+          <div class="metric-foot">
+            <span>Device 2 &bull; Reed Switch</span>
+            <span>Keamanan</span>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <svg class="card-watermark"><use href="#vec-botanic"/></svg>
+          <div class="metric-top">
+            <div class="metric-label-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--info)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <span class="metric-label">SENSOR PIR</span>
+            </div>
+            <span id="badgeDev2Pir" class="badge badge-ok">Aman</span>
+          </div>
+          <div class="gauge-row">
+            <div id="valDev2Pir" class="metric-value mono">Kosong</div>
+          </div>
+          <div class="metric-foot">
+            <span>Device 2 &bull; Gerak</span>
+            <span>Ruang Steril</span>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <svg class="card-watermark"><use href="#vec-botanic"/></svg>
+          <div class="metric-top">
+            <div class="metric-label-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              <span class="metric-label">LAMPU UV-C</span>
+            </div>
+            <span id="badgeDev2Uv" class="badge badge-neutral">Siaga</span>
+          </div>
+          <div class="gauge-row">
+            <div id="valDev2Uv" class="metric-value mono">Mati</div>
+          </div>
+          <div class="metric-foot">
+            <span>Sterilisasi 254nm</span>
+            <span>Otomatis</span>
+          </div>
+        </div>
+
+        <div class="metric-card">
+          <svg class="card-watermark"><use href="#vec-botanic"/></svg>
+          <div class="metric-top">
+            <div class="metric-label-wrap">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-bright)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span class="metric-label">INTERLOCK SAFETY</span>
+            </div>
+            <span id="dev2StatusBadge" class="badge badge-ok">Siaga</span>
+          </div>
+          <div class="gauge-row">
+            <div id="valDev2Interlock" class="metric-value mono">Aman</div>
+          </div>
+          <div class="metric-foot">
+            <span>Ruang Steril</span>
+            <span id="valDev2Climate" class="mono">20.0 C &bull; 50%</span>
           </div>
         </div>
       </section>
@@ -2622,11 +2708,20 @@
           const rows = await listRes.json();
           sensorsCache = rows;
           if (rows && rows.length > 0) {
-            const latest = rows[0];
-            const suhu = Number(latest.suhu);
-            const hum = Number(latest.kelembapan);
-            const gas = Number(latest.kadar_gas);
-            const lux = Number(latest.cahaya ?? 0);
+            // Opsi A: Kartu metrik iklim (Suhu, Lembap, Gas, Cahaya) difokuskan ke Node 1 (Rak Vaksin).
+            // Status pintu dan UV mengambil status aktif (apabila terbuka/aktif di Node 1 atau Node 2).
+            const dev1Data = rows.find(r => r.device_id === 'device_1') || rows[0];
+            const dev2Data = rows.find(r => r.device_id === 'device_2');
+
+            const suhu = Number(dev1Data.suhu);
+            const hum = Number(dev1Data.kelembapan);
+            const gas = Number(dev1Data.kadar_gas);
+            const lux = Number(dev1Data.cahaya ?? 0);
+
+            // Status pintu: terbuka jika salah satu terbuka
+            const doorOpen = (dev1Data.status_pintu == 1) || (dev2Data && dev2Data.status_pintu == 1);
+            // Status UV: aktif jika salah satu aktif
+            const uvActive = (dev1Data.status_uv == 1) || (dev2Data && dev2Data.status_uv == 1);
 
             document.getElementById("valTemp").textContent = `${suhu.toFixed(1)} C`;
             document.getElementById("valHum").textContent = `${hum.toFixed(1)} %`;
@@ -2634,8 +2729,8 @@
             const luxValEl = document.getElementById("valLux");
             if (luxValEl) luxValEl.textContent = `${Math.round(lux)} Lux`;
 
-            document.getElementById("valDoor").textContent = latest.status_pintu == 1 ? "Terbuka" : "Tertutup";
-            document.getElementById("valUv").textContent = latest.status_uv == 1 ? "UV On" : "UV Off";
+            document.getElementById("valDoor").textContent = doorOpen ? "Terbuka" : "Tertutup";
+            document.getElementById("valUv").textContent = uvActive ? "UV On" : "UV Off";
 
             setArcProgress("tempArc", suhu, 25);
             setArcProgress("humArc", hum, 100);
@@ -2652,10 +2747,10 @@
             }
 
             const sBadge = document.getElementById("secBadge");
-            if (latest.status === "Bahaya") {
+            if (gas > 50 || doorOpen) {
               sBadge.className = "badge badge-danger";
               sBadge.textContent = "Bahaya";
-            } else if (latest.status === "Peringatan") {
+            } else if (doorOpen) {
               sBadge.className = "badge badge-warn";
               sBadge.textContent = "Peringatan";
             } else {
@@ -2674,6 +2769,70 @@
               } else {
                 lBadge.className = "badge badge-neutral";
                 lBadge.textContent = "Redup";
+              }
+            }
+
+            // Update Baris Kartu Device 2 (Steril & Keamanan)
+            const d2Pintu = dev2Data ? (dev2Data.status_pintu == 1) : (parseInt(document.getElementById('sim2_pintu')?.value) === 1);
+            const d2Pir = (parseInt(document.getElementById('sim2_pir')?.value) === 1);
+            const d2Uv = dev2Data ? (dev2Data.status_uv == 1) : (parseInt(document.getElementById('sim2_uv')?.value) === 1);
+
+            const elD2Door = document.getElementById("valDev2Door");
+            const elB2Door = document.getElementById("badgeDev2Door");
+            if (elD2Door) elD2Door.textContent = d2Pintu ? "Terbuka" : "Terkunci";
+            if (elB2Door) {
+              elB2Door.textContent = d2Pintu ? "Bahaya" : "Aman";
+              elB2Door.className = d2Pintu ? "badge badge-danger" : "badge badge-ok";
+            }
+
+            const elD2Pir = document.getElementById("valDev2Pir");
+            const elB2Pir = document.getElementById("badgeDev2Pir");
+            if (elD2Pir) elD2Pir.textContent = d2Pir ? "Ada Orang" : "Kosong";
+            if (elB2Pir) {
+              elB2Pir.textContent = d2Pir ? "Bahaya" : "Aman";
+              elB2Pir.className = d2Pir ? "badge badge-danger" : "badge badge-ok";
+            }
+
+            const elD2Uv = document.getElementById("valDev2Uv");
+            const elB2Uv = document.getElementById("badgeDev2Uv");
+            if (elD2Uv) elD2Uv.textContent = d2Uv ? "Menyala" : "Mati";
+            if (elB2Uv) {
+              elB2Uv.textContent = d2Uv ? "Aktif" : "Siaga";
+              elB2Uv.className = d2Uv ? "badge badge-info" : "badge badge-neutral";
+            }
+
+            const elD2Badge = document.getElementById("dev2StatusBadge");
+            const elD2Lock = document.getElementById("valDev2Interlock");
+            const elD2Clim = document.getElementById("valDev2Climate");
+            if (elD2Clim && dev2Data) {
+              elD2Clim.textContent = `${Number(dev2Data.suhu).toFixed(1)} C • ${Math.round(Number(dev2Data.kelembapan))}%`;
+            }
+            if (d2Pintu || d2Pir) {
+              if (elD2Badge) {
+                elD2Badge.textContent = d2Pir ? "Ada Aktivitas" : "Pintu Buka";
+                elD2Badge.className = "badge badge-warn";
+              }
+              if (elD2Lock) {
+                elD2Lock.textContent = "UV Dikunci";
+                elD2Lock.style.color = "var(--warn)";
+              }
+            } else if (d2Uv) {
+              if (elD2Badge) {
+                elD2Badge.textContent = "Sterilisasi";
+                elD2Badge.className = "badge badge-ok";
+              }
+              if (elD2Lock) {
+                elD2Lock.textContent = "Aktif";
+                elD2Lock.style.color = "#a855f7";
+              }
+            } else {
+              if (elD2Badge) {
+                elD2Badge.textContent = "Siaga";
+                elD2Badge.className = "badge badge-ok";
+              }
+              if (elD2Lock) {
+                elD2Lock.textContent = "Aman";
+                elD2Lock.style.color = "var(--text-main)";
               }
             }
 
