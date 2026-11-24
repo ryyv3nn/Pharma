@@ -375,11 +375,15 @@ class GenericResponse(BaseModel):
     message: str
 
 
+_LAST_DB_STATE: dict = {}
+DB_SAVE_INTERVAL_SEC = 60  # Simpan log periodik ke DB maksimal 1x per menit (kecuali ada perubahan status/suhu)
+
+
 # Gerbang tunggal untuk semua telemetri (MQTT, /kirim-data, simulator).
 # Status: Bahaya (gas > 50 PPM / pintu terbuka / cahaya > 600 lux),
 # Peringatan (suhu di luar 2-8 °C / cahaya > 300 lux), selain itu Aman.
-# Baris disimpan ke sensor_data; gagal simpan hanya dicatat, tidak menghentikan layanan.
-def process_and_save_sensor_data(data: dict):
+# Baris disimpan ke sensor_data dengan smart throttle agar DB tidak cepat penuh.
+def process_and_save_sensor_data(data: dict, force_save: bool = False):
     """Pengolahan Data Cloud: Analisis batas aman cold-chain vaksin & gas berbahaya"""
     device_raw = str(data.get("device_id", data.get("deviceId", data.get("device", "device_1"))))
     if "dev2" in device_raw.lower() or "device_2" in device_raw.lower():
@@ -431,6 +435,20 @@ def process_and_save_sensor_data(data: dict):
     else:
         status = "Aman"
 
+    now_ts = time.time()
+    if not force_save:
+        last = _LAST_DB_STATE.get(device_id)
+        if last:
+            elapsed = now_ts - last["ts"]
+            changed = (
+                status != last["status"]
+                or status_pintu != last["pintu"]
+                or status_uv != last["uv"]
+                or abs(suhu - last["suhu"]) >= 0.5
+            )
+            if elapsed < DB_SAVE_INTERVAL_SEC and not changed:
+                return
+
     try:
         conn = get_db()
         cursor = conn.cursor()
@@ -442,6 +460,13 @@ def process_and_save_sensor_data(data: dict):
         conn.commit()
         cursor.close()
         conn.close()
+        _LAST_DB_STATE[device_id] = {
+            "ts": now_ts,
+            "status": status,
+            "pintu": status_pintu,
+            "uv": status_uv,
+            "suhu": suhu,
+        }
         print(f"[DATA SAVED] {device_id} | Suhu: {suhu}°C | Cahaya: {cahaya} Lux | Status: {status}")
     except Exception as e:
         print(f"[SAVE ERROR] {e}")
@@ -934,7 +959,7 @@ def get_sensor_summary(_user: dict = Depends(require_user)):
 # lalu broadcast ke 'pharma/sensor' agar Flutter menerima realtime.
 @app.post("/kirim-data", tags=["Telemetri"], summary="Kirim Data Sensor")
 def kirim_data(data_baru: dict, _user: Optional[dict] = Depends(optional_user)):
-    process_and_save_sensor_data(data_baru)
+    process_and_save_sensor_data(data_baru, force_save=True)
     try:
         publish_mqtt("pharma/sensor", json.dumps(data_baru))
     except Exception:
