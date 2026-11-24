@@ -407,6 +407,13 @@ def process_and_save_sensor_data(data: dict):
     except (ValueError, TypeError):
         cahaya = 0.0
 
+    # Auto-scaling pintar: Jika mikrokontroler mengirim ADC mentah (0 - 4095)
+    if kadar_gas > 100.0:
+        kadar_gas = round((kadar_gas / 4095.0) * 100.0, 1)
+
+    if cahaya > 500.0:
+        cahaya = round((cahaya / 4095.0) * 250.0, 0)
+
     try:
         status_pintu = int(data.get("status_pintu", 0))
     except (ValueError, TypeError):

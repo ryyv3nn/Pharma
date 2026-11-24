@@ -74,16 +74,20 @@ factory SensorModel.fromJson(
           (json['humidity_dht'] as num?)?.toDouble() ??
           (json['humidity'] as num?)?.toDouble() ??
           0.0,
-      kadarGas:
-          (json['kadar_gas'] as num?)?.toDouble() ??
-          (json['gas'] as num?)?.toDouble() ??
-          (json['mq2'] as num?)?.toDouble() ??
-          0.0,
-      cahaya:
-          (json['cahaya'] as num?)?.toDouble() ??
-          (json['ldr'] as num?)?.toDouble() ??
-          (json['light'] as num?)?.toDouble() ??
-          0.0,
+      kadarGas: (() {
+        double g = (json['kadar_gas'] as num?)?.toDouble() ??
+            (json['gas'] as num?)?.toDouble() ??
+            (json['mq2'] as num?)?.toDouble() ??
+            0.0;
+        return g > 100.0 ? double.parse(((g / 4095.0) * 100.0).toStringAsFixed(1)) : g;
+      })(),
+      cahaya: (() {
+        double l = (json['cahaya'] as num?)?.toDouble() ??
+            (json['ldr'] as num?)?.toDouble() ??
+            (json['light'] as num?)?.toDouble() ??
+            0.0;
+        return l > 500.0 ? (l / 4095.0) * 250.0 : l;
+      })(),
       statusKipas:
           (json['status_kipas'] as num?)?.toInt() ??
           (json['kipas'] as num?)?.toInt() ??

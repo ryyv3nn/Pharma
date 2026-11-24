@@ -2724,8 +2724,10 @@
 
             const suhu = Number(dev1Data.suhu);
             const hum = Number(dev1Data.kelembapan);
-            const gas = Number(dev1Data.kadar_gas);
-            const lux = Number(dev1Data.cahaya ?? 0);
+            let gas = Number(dev1Data.kadar_gas);
+            let lux = Number(dev1Data.cahaya ?? 0);
+            if (gas > 100) gas = Number(((gas / 4095) * 100).toFixed(1));
+            if (lux > 500) lux = Math.round((lux / 4095) * 250);
 
             // Status pintu: terbuka jika salah satu terbuka
             const doorOpen = (dev1Data.status_pintu == 1) || (dev2Data && dev2Data.status_pintu == 1);
@@ -3296,18 +3298,23 @@
       });
 
       tbody.innerHTML = sorted.map(r => {
-        const bClass = r.status === "Bahaya" ? "badge-danger" : (r.status === "Peringatan" ? "badge-warn" : "badge-ok");
+        let rowGas = Number(r.kadar_gas);
+        let rowLux = Math.round(Number(r.cahaya ?? 0));
+        if (rowGas > 100) rowGas = Number(((rowGas / 4095) * 100).toFixed(1));
+        if (rowLux > 500) rowLux = Math.round((rowLux / 4095) * 250);
+        const bClass = (rowGas > 50 || r.status_pintu == 1 || rowLux > 600) ? "badge-danger" : ((Number(r.suhu) < 2 || Number(r.suhu) > 8 || rowLux > 300) ? "badge-warn" : "badge-ok");
+        const statusText = bClass === "badge-danger" ? "Bahaya" : (bClass === "badge-warn" ? "Peringatan" : "Aman");
         return `
           <tr>
             <td class="mono">#${r.id ?? '-'}</td>
             <td class="mono">${r.device_id}</td>
             <td class="mono" style="font-weight:700;">${Number(r.suhu).toFixed(1)} C</td>
             <td class="mono">${Number(r.kelembapan).toFixed(1)} %</td>
-            <td class="mono">${Number(r.kadar_gas).toFixed(1)} ppm</td>
-            <td class="mono">${Math.round(Number(r.cahaya ?? 0))} Lux</td>
+            <td class="mono">${rowGas.toFixed(1)} ppm</td>
+            <td class="mono">${rowLux} Lux</td>
             <td>${r.status_pintu == 1 ? 'Terbuka' : 'Tertutup'}</td>
             <td>${r.status_uv == 1 ? 'On' : 'Off'}</td>
-            <td><span class="badge ${bClass}">${r.status}</span></td>
+            <td><span class="badge ${bClass}">${statusText}</span></td>
             <td class="mono" style="color:var(--text-secondary);">${r.created_at || r.waktu || '-'}</td>
           </tr>
         `;
