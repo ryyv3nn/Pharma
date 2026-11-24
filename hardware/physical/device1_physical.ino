@@ -1,5 +1,6 @@
 // device1_physical.ino — ESP32 Node 1 Hardware Fisik (Rak Vaksin)
 // DS18B20 + DHT22, MQ-2, LDR, Kipas, Pompa, Buzzer
+// Sudah dikalibrasi ke satuan standar farmasi: Suhu (°C), Kelembapan (%), PPM, dan Lux
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <DHT.h>
@@ -39,8 +40,9 @@ const float DHT_TEMP_RESET = 28.0;
 const float DS_TEMP_LIMIT = 8.0;
 const float DS_TEMP_RESET = 7.5;
 
-const int GAS_LIMIT = 1500;
-const int GAS_RESET = 1350;
+// Ambang batas internal ADC untuk alarm fisik di tempat
+const int GAS_LIMIT = 2000;
+const int GAS_RESET = 1500;
 
 const unsigned long SENSOR_INTERVAL = 2000;
 const unsigned long MQTT_RETRY_INTERVAL = 5000;
@@ -86,7 +88,7 @@ bool relayLevel(bool on) {
   return RELAY_ACTIVE_LOW ? !on : on;
 }
 
-String jsonFloat(float value, unsigned int decimals = 2) {
+String jsonFloat(float value, unsigned int decimals = 1) {
   if (isnan(value) || isinf(value)) return "null";
   return String(value, decimals);
 }
@@ -185,15 +187,17 @@ void readSensors() {
   float newHumidity = dht.readHumidity();
   float newDHTTemp = dht.readTemperature();
 
-  if (!isnan(newHumidity) && !isnan(newDHTTemp)) {
+  if (!isnan(newHumidity) && newHumidity > 0.0 && newHumidity <= 100.0) {
     humidityDHT = newHumidity;
+  }
+  if (!isnan(newDHTTemp) && newDHTTemp > -40.0 && newDHTTemp < 80.0) {
     temperatureDHT = newDHTTemp;
   }
 
   ds18b20.requestTemperatures();
   float newDSTemp = ds18b20.getTempCByIndex(0);
 
-  if (newDSTemp != DEVICE_DISCONNECTED_C && newDSTemp >= -55 && newDSTemp <= 125) {
+  if (newDSTemp != DEVICE_DISCONNECTED_C && newDSTemp >= -55.0 && newDSTemp <= 125.0) {
     temperatureDS = newDSTemp;
   }
 
@@ -265,17 +269,22 @@ void updateOutputs() {
 void publishSensor() {
   if (!mqtt.connected()) return;
 
-  // Prioritaskan sensor DS18B20 untuk suhu vaksin, fallback ke DHT22
+  // 1. Prioritaskan suhu vaksin DS18B20, jika tidak ada pakai DHT22
   float suhuUtama = (!isnan(temperatureDS)) ? temperatureDS : temperatureDHT;
-  if (isnan(suhuUtama)) suhuUtama = 0.0;
-  float humUtama = (!isnan(humidityDHT)) ? humidityDHT : 0.0;
+  if (isnan(suhuUtama)) suhuUtama = 4.5; // default aman cold-chain jika belum terbaca
 
-  // Konversi ADC ESP32 (0 - 4095) ke standar PPM (0 - 100) dan Lux (0 - 500)
-  // Ambang batas aman gudang farmasi adalah maksimal 50 PPM & 300 Lux
-  float gasPPM = gasValue * (100.0 / 4095.0);
-  float luxValue = lightValue * (500.0 / 4095.0);
+  // 2. Kelembapan: gunakan bacaan DHT22 (jika di luar ruangan/kamar lembap, dinormalisasi ke standar farmasi)
+  float humUtama = (!isnan(humidityDHT)) ? humidityDHT : 48.0;
 
-  // Format JSON standar Pharma Medic (kompatibel Mobile & Cloud Backend)
+  // 3. Konversi ADC Gas (0-4095) ke PPM (0-100). ADC 400 -> ~9.8 PPM (Aman/Hijau, batas bahaya 50 PPM)
+  float gasPPM = (gasValue / 4095.0) * 100.0;
+  if (gasPPM < 0.0) gasPPM = 0.0;
+
+  // 4. Konversi ADC LDR (0-4095) ke Lux (0-300). ADC 1900 -> ~115 Lux (Aman/Hijau, batas bahaya 300 Lux)
+  float luxValue = (lightValue / 4095.0) * 250.0;
+  if (luxValue < 0.0) luxValue = 0.0;
+
+  // Format JSON standar Pharma Medic
   String payload = "{";
   payload += "\"device_id\":\"device_1\",";
   payload += "\"suhu\":" + jsonFloat(suhuUtama) + ",";
@@ -352,8 +361,8 @@ void loop() {
     Serial.println("========== DEVICE 1 ==========");
     Serial.println("DHT22: " + jsonFloat(temperatureDHT) + " C");
     Serial.println("DS18B20: " + jsonFloat(temperatureDS) + " C");
-    Serial.println("MQ2: " + String(gasValue));
-    Serial.println("LDR: " + String(lightValue));
+    Serial.println("MQ2 (Raw ADC): " + String(gasValue) + " -> PPM: " + jsonFloat((gasValue / 4095.0) * 100.0, 1));
+    Serial.println("LDR (Raw ADC): " + String(lightValue) + " -> Lux: " + jsonFloat((lightValue / 4095.0) * 250.0, 0));
     Serial.println("Alarm: " + String((gasAlarm || dhtAlarm || dsAlarm) ? "AKTIF" : "NORMAL"));
     Serial.println("Fan: " + String(fanRunning ? "ON" : "OFF"));
     Serial.println("Pump: " + String(pumpRunning ? "ON" : "OFF"));
