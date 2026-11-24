@@ -376,6 +376,7 @@ class GenericResponse(BaseModel):
 
 
 _LAST_DB_STATE: dict = {}
+_LATEST_LIVE_DATA: dict = {}
 DB_SAVE_INTERVAL_SEC = 60  # Simpan log periodik ke DB maksimal 1x per menit (kecuali ada perubahan status/suhu)
 
 
@@ -436,6 +437,19 @@ def process_and_save_sensor_data(data: dict, force_save: bool = False):
         status = "Aman"
 
     now_ts = time.time()
+    # ponytail: simpan data realtime live di memory RAM agar dashboard web bisa responsif instan tanpa spam database
+    _LATEST_LIVE_DATA[device_id] = {
+        "device_id": device_id,
+        "suhu": suhu,
+        "kelembapan": kelembapan,
+        "kadar_gas": kadar_gas,
+        "cahaya": cahaya,
+        "status_pintu": status_pintu,
+        "status_uv": status_uv,
+        "status": status,
+        "waktu": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
     if not force_save:
         last = _LAST_DB_STATE.get(device_id)
         if last:
@@ -930,6 +944,28 @@ def delete_sensor_record(sensor_id: int, _op: dict = Depends(require_operator)):
         return {"success": True, "message": f"Log sensor #{sensor_id} berhasil dihapus"}
     except Exception:
         raise HTTPException(status_code=500, detail="Database error")
+
+@app.get("/sensor/latest", tags=["Telemetri"], summary="Telemetri Realtime Terkini (RAM)")
+def get_latest_sensor_data(_user: Optional[dict] = Depends(optional_user)):
+    """Data realtime live dari memory server tanpa menunggu interval throttle database"""
+    if not _LATEST_LIVE_DATA:
+        try:
+            conn = get_db()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM sensor_data ORDER BY id DESC LIMIT 2")
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            for r in rows:
+                dev = r.get("device_id", "device_1")
+                if dev not in _LATEST_LIVE_DATA:
+                    if isinstance(r.get("created_at"), (datetime.date, datetime.datetime)):
+                        r["created_at"] = r["created_at"].strftime("%Y-%m-%d %H:%M:%S")
+                        r["waktu"] = r["created_at"]
+                    _LATEST_LIVE_DATA[dev] = r
+        except Exception:
+            pass
+    return _LATEST_LIVE_DATA
 
 @app.get("/sensor/summary", tags=["Telemetri"], response_model=SensorSummary, summary="Ringkasan Statistik")
 def get_sensor_summary(_user: dict = Depends(require_user)):

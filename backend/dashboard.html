@@ -2692,6 +2692,153 @@
       el.setAttribute("stroke-dashoffset", String((total * (1 - pct)).toFixed(1)));
     }
 
+    function updateMetricCards(dev1Data, dev2Data) {
+      if (!dev1Data) return;
+      const suhu = Number(dev1Data.suhu);
+      const hum = Number(dev1Data.kelembapan);
+      let gas = Number(dev1Data.kadar_gas);
+      let lux = Number(dev1Data.cahaya ?? 0);
+      if (gas > 100) gas = Number(((gas / 4095) * 100).toFixed(1));
+      if (lux > 500) lux = Math.round((lux / 4095) * 250);
+
+      // Status pintu: terbuka jika salah satu terbuka
+      const doorOpen = (dev1Data.status_pintu == 1) || (dev2Data && dev2Data.status_pintu == 1);
+      // Status UV: aktif jika salah satu aktif
+      const uvActive = (dev1Data.status_uv == 1) || (dev2Data && dev2Data.status_uv == 1);
+
+      document.getElementById("valTemp").textContent = `${suhu.toFixed(1)} C`;
+      document.getElementById("valHum").textContent = `${hum.toFixed(1)} %`;
+      document.getElementById("valGas").textContent = `${gas.toFixed(1)} ppm`;
+      const luxValEl = document.getElementById("valLux");
+      if (luxValEl) luxValEl.textContent = `${Math.round(lux)} Lux`;
+
+      const doorEl = document.getElementById("valDoor");
+      if (doorEl) doorEl.textContent = doorOpen ? "Terbuka" : "Tertutup";
+      const uvEl = document.getElementById("valUv");
+      if (uvEl) uvEl.textContent = uvActive ? "UV On" : "UV Off";
+
+      setArcProgress("tempArc", suhu, 25);
+      setArcProgress("humArc", hum, 100);
+      setArcProgress("gasArc", gas, 100);
+      setArcProgress("luxArc", lux, 500);
+
+      const tBadge = document.getElementById("tempStatusBadge");
+      if (tBadge) {
+        if (suhu >= 2 && suhu <= 8) {
+          tBadge.className = "badge badge-ok";
+          tBadge.textContent = "Optimal";
+        } else {
+          tBadge.className = "badge badge-warn";
+          tBadge.textContent = "Peringatan";
+        }
+      }
+
+      const sBadge = document.getElementById("secBadge");
+      if (sBadge) {
+        if (gas > 50) {
+          sBadge.className = "badge badge-danger";
+          sBadge.textContent = "Bahaya";
+        } else if (gas > 30) {
+          sBadge.className = "badge badge-warn";
+          sBadge.textContent = "Waspada";
+        } else {
+          sBadge.className = "badge badge-ok";
+          sBadge.textContent = "Aman";
+        }
+      }
+
+      const lBadge = document.getElementById("luxStatusBadge");
+      if (lBadge) {
+        if (lux > 0 && lux <= 300) {
+          lBadge.className = "badge badge-ok";
+          lBadge.textContent = "Optimal";
+        } else if (lux > 300) {
+          lBadge.className = "badge badge-warn";
+          lBadge.textContent = "Terang";
+        } else {
+          lBadge.className = "badge badge-neutral";
+          lBadge.textContent = "Redup";
+        }
+      }
+
+      // Update Baris Kartu Device 2 (Steril & Keamanan)
+      const d2Pintu = dev2Data ? (dev2Data.status_pintu == 1) : (parseInt(document.getElementById('sim2_pintu')?.value) === 1);
+      const d2Pir = (parseInt(document.getElementById('sim2_pir')?.value) === 1);
+      const d2Uv = dev2Data ? (dev2Data.status_uv == 1) : (parseInt(document.getElementById('sim2_uv')?.value) === 1);
+
+      const elD2Door = document.getElementById("valDev2Door");
+      const elB2Door = document.getElementById("badgeDev2Door");
+      if (elD2Door) elD2Door.textContent = d2Pintu ? "Terbuka" : "Terkunci";
+      if (elB2Door) {
+        elB2Door.textContent = d2Pintu ? "Bahaya" : "Aman";
+        elB2Door.className = d2Pintu ? "badge badge-danger" : "badge badge-ok";
+      }
+
+      const elD2Pir = document.getElementById("valDev2Pir");
+      const elB2Pir = document.getElementById("badgeDev2Pir");
+      if (elD2Pir) elD2Pir.textContent = d2Pir ? "Ada Orang" : "Kosong";
+      if (elB2Pir) {
+        elB2Pir.textContent = d2Pir ? "Bahaya" : "Aman";
+        elB2Pir.className = d2Pir ? "badge badge-danger" : "badge badge-ok";
+      }
+
+      const elD2Uv = document.getElementById("valDev2Uv");
+      const elB2Uv = document.getElementById("badgeDev2Uv");
+      if (elD2Uv) elD2Uv.textContent = d2Uv ? "Menyala" : "Mati";
+      if (elB2Uv) {
+        elB2Uv.textContent = d2Uv ? "Aktif" : "Siaga";
+        elB2Uv.className = d2Uv ? "badge badge-info" : "badge badge-neutral";
+      }
+
+      const elD2Badge = document.getElementById("dev2StatusBadge");
+      const elD2Lock = document.getElementById("valDev2Interlock");
+      const elD2Clim = document.getElementById("valDev2Climate");
+      if (elD2Clim && dev2Data) {
+        elD2Clim.textContent = `${Number(dev2Data.suhu).toFixed(1)} C • ${Math.round(Number(dev2Data.kelembapan))}%`;
+      }
+      if (d2Pintu || d2Pir) {
+        if (elD2Badge) {
+          elD2Badge.textContent = d2Pir ? "Ada Aktivitas" : "Pintu Buka";
+          elD2Badge.className = "badge badge-warn";
+        }
+        if (elD2Lock) {
+          elD2Lock.textContent = "UV Dikunci";
+          elD2Lock.style.color = "var(--warn)";
+        }
+      } else if (d2Uv) {
+        if (elD2Badge) {
+          elD2Badge.textContent = "Sterilisasi";
+          elD2Badge.className = "badge badge-ok";
+        }
+        if (elD2Lock) {
+          elD2Lock.textContent = "Aktif";
+          elD2Lock.style.color = "#a855f7";
+        }
+      } else {
+        if (elD2Badge) {
+          elD2Badge.textContent = "Siaga";
+          elD2Badge.className = "badge badge-ok";
+        }
+        if (elD2Lock) {
+          elD2Lock.textContent = "Aman";
+          elD2Lock.style.color = "var(--text-main)";
+        }
+      }
+    }
+
+    async function pollLiveTelemetry() {
+      if (!bearerToken) return;
+      try {
+        const res = await fetch("/sensor/latest", { headers: { "Authorization": "Bearer " + bearerToken } });
+        if (res.ok) {
+          const live = await res.json();
+          if (live && (live.device_1 || live.device_2)) {
+            updateMetricCards(live.device_1, live.device_2);
+          }
+        }
+      } catch (e) {}
+    }
+
     async function refreshDashboardData() {
       if (!bearerToken) return;
 
@@ -2721,136 +2868,7 @@
             // Status pintu dan UV mengambil status aktif (apabila terbuka/aktif di Node 1 atau Node 2).
             const dev1Data = rows.find(r => r.device_id === 'device_1') || rows[0];
             const dev2Data = rows.find(r => r.device_id === 'device_2');
-
-            const suhu = Number(dev1Data.suhu);
-            const hum = Number(dev1Data.kelembapan);
-            let gas = Number(dev1Data.kadar_gas);
-            let lux = Number(dev1Data.cahaya ?? 0);
-            if (gas > 100) gas = Number(((gas / 4095) * 100).toFixed(1));
-            if (lux > 500) lux = Math.round((lux / 4095) * 250);
-
-            // Status pintu: terbuka jika salah satu terbuka
-            const doorOpen = (dev1Data.status_pintu == 1) || (dev2Data && dev2Data.status_pintu == 1);
-            // Status UV: aktif jika salah satu aktif
-            const uvActive = (dev1Data.status_uv == 1) || (dev2Data && dev2Data.status_uv == 1);
-
-            document.getElementById("valTemp").textContent = `${suhu.toFixed(1)} C`;
-            document.getElementById("valHum").textContent = `${hum.toFixed(1)} %`;
-            document.getElementById("valGas").textContent = `${gas.toFixed(1)} ppm`;
-            const luxValEl = document.getElementById("valLux");
-            if (luxValEl) luxValEl.textContent = `${Math.round(lux)} Lux`;
-
-            const doorEl = document.getElementById("valDoor");
-            if (doorEl) doorEl.textContent = doorOpen ? "Terbuka" : "Tertutup";
-            const uvEl = document.getElementById("valUv");
-            if (uvEl) uvEl.textContent = uvActive ? "UV On" : "UV Off";
-
-            setArcProgress("tempArc", suhu, 25);
-            setArcProgress("humArc", hum, 100);
-            setArcProgress("gasArc", gas, 100);
-            setArcProgress("luxArc", lux, 500);
-
-            const tBadge = document.getElementById("tempStatusBadge");
-            if (suhu >= 2 && suhu <= 8) {
-              tBadge.className = "badge badge-ok";
-              tBadge.textContent = "Optimal";
-            } else {
-              tBadge.className = "badge badge-warn";
-              tBadge.textContent = "Peringatan";
-            }
-
-            const sBadge = document.getElementById("secBadge");
-            if (sBadge) {
-              if (gas > 50) {
-                sBadge.className = "badge badge-danger";
-                sBadge.textContent = "Bahaya";
-              } else if (gas > 30) {
-                sBadge.className = "badge badge-warn";
-                sBadge.textContent = "Waspada";
-              } else {
-                sBadge.className = "badge badge-ok";
-                sBadge.textContent = "Aman";
-              }
-            }
-
-            const lBadge = document.getElementById("luxStatusBadge");
-            if (lBadge) {
-              if (lux > 0 && lux <= 300) {
-                lBadge.className = "badge badge-ok";
-                lBadge.textContent = "Optimal";
-              } else if (lux > 300) {
-                lBadge.className = "badge badge-warn";
-                lBadge.textContent = "Terang";
-              } else {
-                lBadge.className = "badge badge-neutral";
-                lBadge.textContent = "Redup";
-              }
-            }
-
-            // Update Baris Kartu Device 2 (Steril & Keamanan)
-            const d2Pintu = dev2Data ? (dev2Data.status_pintu == 1) : (parseInt(document.getElementById('sim2_pintu')?.value) === 1);
-            const d2Pir = (parseInt(document.getElementById('sim2_pir')?.value) === 1);
-            const d2Uv = dev2Data ? (dev2Data.status_uv == 1) : (parseInt(document.getElementById('sim2_uv')?.value) === 1);
-
-            const elD2Door = document.getElementById("valDev2Door");
-            const elB2Door = document.getElementById("badgeDev2Door");
-            if (elD2Door) elD2Door.textContent = d2Pintu ? "Terbuka" : "Terkunci";
-            if (elB2Door) {
-              elB2Door.textContent = d2Pintu ? "Bahaya" : "Aman";
-              elB2Door.className = d2Pintu ? "badge badge-danger" : "badge badge-ok";
-            }
-
-            const elD2Pir = document.getElementById("valDev2Pir");
-            const elB2Pir = document.getElementById("badgeDev2Pir");
-            if (elD2Pir) elD2Pir.textContent = d2Pir ? "Ada Orang" : "Kosong";
-            if (elB2Pir) {
-              elB2Pir.textContent = d2Pir ? "Bahaya" : "Aman";
-              elB2Pir.className = d2Pir ? "badge badge-danger" : "badge badge-ok";
-            }
-
-            const elD2Uv = document.getElementById("valDev2Uv");
-            const elB2Uv = document.getElementById("badgeDev2Uv");
-            if (elD2Uv) elD2Uv.textContent = d2Uv ? "Menyala" : "Mati";
-            if (elB2Uv) {
-              elB2Uv.textContent = d2Uv ? "Aktif" : "Siaga";
-              elB2Uv.className = d2Uv ? "badge badge-info" : "badge badge-neutral";
-            }
-
-            const elD2Badge = document.getElementById("dev2StatusBadge");
-            const elD2Lock = document.getElementById("valDev2Interlock");
-            const elD2Clim = document.getElementById("valDev2Climate");
-            if (elD2Clim && dev2Data) {
-              elD2Clim.textContent = `${Number(dev2Data.suhu).toFixed(1)} C • ${Math.round(Number(dev2Data.kelembapan))}%`;
-            }
-            if (d2Pintu || d2Pir) {
-              if (elD2Badge) {
-                elD2Badge.textContent = d2Pir ? "Ada Aktivitas" : "Pintu Buka";
-                elD2Badge.className = "badge badge-warn";
-              }
-              if (elD2Lock) {
-                elD2Lock.textContent = "UV Dikunci";
-                elD2Lock.style.color = "var(--warn)";
-              }
-            } else if (d2Uv) {
-              if (elD2Badge) {
-                elD2Badge.textContent = "Sterilisasi";
-                elD2Badge.className = "badge badge-ok";
-              }
-              if (elD2Lock) {
-                elD2Lock.textContent = "Aktif";
-                elD2Lock.style.color = "#a855f7";
-              }
-            } else {
-              if (elD2Badge) {
-                elD2Badge.textContent = "Siaga";
-                elD2Badge.className = "badge badge-ok";
-              }
-              if (elD2Lock) {
-                elD2Lock.textContent = "Aman";
-                elD2Lock.style.color = "var(--text-main)";
-              }
-            }
-
+            updateMetricCards(dev1Data, dev2Data);
             renderSensorTable();
           }
         }
@@ -3354,6 +3372,7 @@
       openLoginModal();
     }
     setInterval(() => { if (bearerToken) refreshDashboardData(); }, 5000);
+    setInterval(() => { if (bearerToken) pollLiveTelemetry(); }, 1500);
 
     // Smooth Anchor Navigation & ScrollSpy for Sidebar
     document.querySelectorAll('.nav-group a[href^="#"]').forEach(anchor => {
