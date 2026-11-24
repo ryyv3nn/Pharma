@@ -1762,8 +1762,8 @@
           <svg class="card-watermark"><use href="#vec-botanic"/></svg>
           <div class="metric-top">
             <div class="metric-label-wrap">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-bright)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              <span class="metric-label">GAS &amp; PINTU</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-bright)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+              <span class="metric-label">KADAR GAS</span>
             </div>
             <span id="secBadge" class="badge badge-ok">Aman</span>
           </div>
@@ -1775,8 +1775,8 @@
             </svg>
           </div>
           <div class="metric-foot">
-            <span id="valDoor">Tertutup</span>
-            <span id="valUv">UV Off</span>
+            <span>Standar: &lt; 50 ppm</span>
+            <span id="valAvgGas" class="mono">Avg -- ppm</span>
           </div>
         </div>
 
@@ -2702,6 +2702,8 @@
           document.getElementById("valAvgHum").textContent = `Avg ${sum.avg_kelembapan ?? '--'} %`;
           const avgLuxEl = document.getElementById("valAvgLux");
           if (avgLuxEl) avgLuxEl.textContent = `Avg ${sum.avg_cahaya ?? '--'} Lux`;
+          const avgGasEl = document.getElementById("valAvgGas");
+          if (avgGasEl) avgGasEl.textContent = `Avg ${sum.avg_gas ?? '--'} ppm`;
         }
 
         if (listRes.ok) {
@@ -2729,8 +2731,10 @@
             const luxValEl = document.getElementById("valLux");
             if (luxValEl) luxValEl.textContent = `${Math.round(lux)} Lux`;
 
-            document.getElementById("valDoor").textContent = doorOpen ? "Terbuka" : "Tertutup";
-            document.getElementById("valUv").textContent = uvActive ? "UV On" : "UV Off";
+            const doorEl = document.getElementById("valDoor");
+            if (doorEl) doorEl.textContent = doorOpen ? "Terbuka" : "Tertutup";
+            const uvEl = document.getElementById("valUv");
+            if (uvEl) uvEl.textContent = uvActive ? "UV On" : "UV Off";
 
             setArcProgress("tempArc", suhu, 25);
             setArcProgress("humArc", hum, 100);
@@ -2747,15 +2751,17 @@
             }
 
             const sBadge = document.getElementById("secBadge");
-            if (gas > 50 || doorOpen) {
-              sBadge.className = "badge badge-danger";
-              sBadge.textContent = "Bahaya";
-            } else if (doorOpen) {
-              sBadge.className = "badge badge-warn";
-              sBadge.textContent = "Peringatan";
-            } else {
-              sBadge.className = "badge badge-ok";
-              sBadge.textContent = "Aman";
+            if (sBadge) {
+              if (gas > 50) {
+                sBadge.className = "badge badge-danger";
+                sBadge.textContent = "Bahaya";
+              } else if (gas > 30) {
+                sBadge.className = "badge badge-warn";
+                sBadge.textContent = "Waspada";
+              } else {
+                sBadge.className = "badge badge-ok";
+                sBadge.textContent = "Aman";
+              }
             }
 
             const lBadge = document.getElementById("luxStatusBadge");
