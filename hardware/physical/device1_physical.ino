@@ -35,14 +35,13 @@ const char* TOPIC_CONTROL_D1 = "pharma/control/device_1";
 
 const bool RELAY_ACTIVE_LOW = true;
 
-const float DHT_TEMP_LIMIT = 30.0;
-const float DHT_TEMP_RESET = 28.0;
-const float DS_TEMP_LIMIT = 8.0;
-const float DS_TEMP_RESET = 7.5;
-
-// Ambang batas internal ADC untuk alarm fisik di tempat
-const int GAS_LIMIT = 2000;
-const int GAS_RESET = 1500;
+const float TEMP_MIN_LIMIT = 2.0;
+const float TEMP_MAX_LIMIT = 8.0;
+const float HUM_MIN_LIMIT = 35.0;
+const float HUM_MAX_LIMIT = 60.0;
+const float GAS_PPM_LIMIT = 50.0;
+const float GAS_PPM_RESET = 40.0;
+const float LUX_MAX_LIMIT = 300.0;
 
 const unsigned long SENSOR_INTERVAL = 2000;
 const unsigned long MQTT_RETRY_INTERVAL = 5000;
@@ -68,13 +67,15 @@ unsigned long pumpStart = 0;
 unsigned long device2LastMessage = 0;
 
 bool wifiConnecting = false;
-bool dhtAlarm = false;
-bool dsAlarm = false;
+bool tempAlarm = false;
+bool humAlarm = false;
 bool gasAlarm = false;
+bool lightAlarm = false;
 bool gasTiming = false;
 bool pumpRunning = false;
 bool fanRunning = false;
 bool buzzerRunning = false;
+bool manualBuzzer = false;
 bool device2Alarm = false;
 bool gasWarmupComplete = false;
 
@@ -103,9 +104,18 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     message += (char)payload[i];
   }
 
-  if (String(topic) == TOPIC_DEVICE2_STATUS) {
+  String t = String(topic);
+  if (t == TOPIC_DEVICE2_STATUS) {
     device2LastMessage = millis();
     device2Alarm = message.indexOf("\"alarm\":true") >= 0;
+  } else if (t == TOPIC_CONTROL_D1 || t == "pharma/control/buzzer") {
+    if (message.indexOf("buzzer") >= 0 || t == "pharma/control/buzzer") {
+      if (message.indexOf("\"state\":1") >= 0 || message.indexOf("\"state\":true") >= 0) {
+        manualBuzzer = true;
+      } else if (message.indexOf("\"state\":0") >= 0 || message.indexOf("\"state\":false") >= 0) {
+        manualBuzzer = false;
+      }
+    }
   }
 }
 
@@ -144,17 +154,18 @@ void maintainWiFi() {
 void publishStatus() {
   if (!mqtt.connected()) return;
 
-  bool alarm = gasAlarm || dhtAlarm || dsAlarm;
+  bool alarm = gasAlarm || tempAlarm || humAlarm || lightAlarm;
 
   String payload = "{";
   payload += "\"device_id\":\"device_1\",";
   payload += "\"status\":\"ONLINE\",";
   payload += "\"alarm\":" + String(alarm ? "true" : "false") + ",";
   payload += "\"gas_alarm\":" + String(gasAlarm ? "true" : "false") + ",";
-  payload += "\"temperature_alarm\":" + String((dhtAlarm || dsAlarm) ? "true" : "false") + ",";
+  payload += "\"temperature_alarm\":" + String(tempAlarm ? "true" : "false") + ",";
   payload += "\"status_kipas\":" + String(fanRunning ? 1 : 0) + ",";
   payload += "\"status_pompa\":" + String(pumpRunning ? 1 : 0) + ",";
-  payload += "\"status_buzzer\":" + String(buzzerRunning ? 1 : 0);
+  payload += "\"status_buzzer\":" + String(buzzerRunning ? 1 : 0) + ",";
+  payload += "\"manual_buzzer\":" + String(manualBuzzer ? "true" : "false");
   payload += "}";
 
   mqtt.publish(TOPIC_STATUS, payload.c_str(), true);
@@ -176,6 +187,7 @@ void connectMQTT() {
     Serial.println("BERHASIL");
     mqtt.subscribe(TOPIC_DEVICE2_STATUS);
     mqtt.subscribe(TOPIC_CONTROL_D1);
+    mqtt.subscribe("pharma/control/buzzer");
     publishStatus();
   } else {
     Serial.print("GAGAL, state=");
@@ -204,22 +216,22 @@ void readSensors() {
   gasValue = analogRead(MQ2_PIN);
   lightValue = analogRead(LDR_PIN);
 
-  if (!isnan(temperatureDHT)) {
-    if (temperatureDHT >= DHT_TEMP_LIMIT) dhtAlarm = true;
-    if (temperatureDHT <= DHT_TEMP_RESET) dhtAlarm = false;
-  }
+  // Gunakan DS18B20 sebagai suhu utama; jika belum terbaca (null), fallback ke DHT22
+  float suhuUtama = (!isnan(temperatureDS)) ? temperatureDS : temperatureDHT;
+  tempAlarm = !isnan(suhuUtama) && (suhuUtama < TEMP_MIN_LIMIT || suhuUtama > TEMP_MAX_LIMIT);
 
-  if (!isnan(temperatureDS)) {
-    if (temperatureDS >= DS_TEMP_LIMIT) dsAlarm = true;
-    if (temperatureDS <= DS_TEMP_RESET) dsAlarm = false;
-  }
+  humAlarm = !isnan(humidityDHT) && (humidityDHT < HUM_MIN_LIMIT || humidityDHT > HUM_MAX_LIMIT);
 
+  float luxValue = (lightValue / 4095.0) * 500.0;
+  lightAlarm = luxValue > LUX_MAX_LIMIT;
+
+  float gasPPM = (gasValue / 4095.0) * 100.0;
   if (millis() >= GAS_WARMUP_TIME) {
     gasWarmupComplete = true;
   }
 
   if (gasWarmupComplete) {
-    if (gasValue >= GAS_LIMIT) {
+    if (gasPPM >= GAS_PPM_LIMIT) {
       if (!gasTiming) {
         gasTiming = true;
         gasHighStart = millis();
@@ -228,7 +240,7 @@ void readSensors() {
       if (millis() - gasHighStart >= GAS_CONFIRM_TIME) {
         gasAlarm = true;
       }
-    } else if (gasValue <= GAS_RESET) {
+    } else if (gasPPM <= GAS_PPM_RESET) {
       gasTiming = false;
       gasAlarm = false;
     }
@@ -236,9 +248,8 @@ void readSensors() {
 }
 
 void updateOutputs() {
-  bool temperatureAlarm = dhtAlarm || dsAlarm;
-  bool fanCommand = temperatureAlarm || gasAlarm;
-  bool buzzerCommand = temperatureAlarm || gasAlarm;
+  bool fanCommand = tempAlarm || gasAlarm;
+  bool buzzerCommand = tempAlarm || humAlarm || gasAlarm || lightAlarm || manualBuzzer;
 
   if (fanCommand != fanRunning) {
     fanRunning = fanCommand;
@@ -273,15 +284,15 @@ void publishSensor() {
   float suhuUtama = (!isnan(temperatureDS)) ? temperatureDS : temperatureDHT;
   if (isnan(suhuUtama)) suhuUtama = 4.5; // default aman cold-chain jika belum terbaca
 
-  // 2. Kelembapan: gunakan bacaan DHT22 (jika di luar ruangan/kamar lembap, dinormalisasi ke standar farmasi)
+  // 2. Kelembapan: gunakan bacaan DHT22
   float humUtama = (!isnan(humidityDHT)) ? humidityDHT : 48.0;
 
-  // 3. Konversi ADC Gas (0-4095) ke PPM (0-100). ADC 400 -> ~9.8 PPM (Aman/Hijau, batas bahaya 50 PPM)
+  // 3. Konversi ADC Gas (0-4095) ke PPM (0-100)
   float gasPPM = (gasValue / 4095.0) * 100.0;
   if (gasPPM < 0.0) gasPPM = 0.0;
 
-  // 4. Konversi ADC LDR (0-4095) ke Lux (0-300). ADC 1900 -> ~115 Lux (Aman/Hijau, batas bahaya 300 Lux)
-  float luxValue = (lightValue / 4095.0) * 250.0;
+  // 4. Konversi ADC LDR (0-4095) ke Lux (0-500)
+  float luxValue = (lightValue / 4095.0) * 500.0;
   if (luxValue < 0.0) luxValue = 0.0;
 
   // Format JSON standar Pharma Medic
@@ -294,6 +305,7 @@ void publishSensor() {
   payload += "\"status_kipas\":" + String(fanRunning ? 1 : 0) + ",";
   payload += "\"status_pompa\":" + String(pumpRunning ? 1 : 0) + ",";
   payload += "\"status_buzzer\":" + String(buzzerRunning ? 1 : 0) + ",";
+  payload += "\"manual_buzzer\":" + String(manualBuzzer ? "true" : "false") + ",";
   payload += "\"status_pintu\":0,";
   payload += "\"status_uv\":0,";
   payload += "\"raw_gas\":" + String(gasValue) + ",";
@@ -362,8 +374,9 @@ void loop() {
     Serial.println("DHT22: " + jsonFloat(temperatureDHT) + " C");
     Serial.println("DS18B20: " + jsonFloat(temperatureDS) + " C");
     Serial.println("MQ2 (Raw ADC): " + String(gasValue) + " -> PPM: " + jsonFloat((gasValue / 4095.0) * 100.0, 1));
-    Serial.println("LDR (Raw ADC): " + String(lightValue) + " -> Lux: " + jsonFloat((lightValue / 4095.0) * 250.0, 0));
-    Serial.println("Alarm: " + String((gasAlarm || dhtAlarm || dsAlarm) ? "AKTIF" : "NORMAL"));
+    Serial.println("LDR (Raw ADC): " + String(lightValue) + " -> Lux: " + jsonFloat((lightValue / 4095.0) * 500.0, 0));
+    Serial.println("Alarm: " + String((gasAlarm || tempAlarm || humAlarm || lightAlarm) ? "AKTIF" : "NORMAL"));
+    Serial.println("Buzzer: " + String(buzzerRunning ? "ON" : "OFF"));
     Serial.println("Fan: " + String(fanRunning ? "ON" : "OFF"));
     Serial.println("Pump: " + String(pumpRunning ? "ON" : "OFF"));
     Serial.println("Device 2 Alarm: " + String(device2Alarm ? "AKTIF" : "NORMAL"));
