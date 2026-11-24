@@ -17,6 +17,7 @@ class SensorTrendChart extends StatefulWidget {
   final double humidityMax;
   final double gasMax;
   final bool isVaccineRack;
+  final bool isMultiZone;
 
   const SensorTrendChart({
     super.key,
@@ -27,6 +28,7 @@ class SensorTrendChart extends StatefulWidget {
     this.humidityMax = 50.0,
     this.gasMax = 50.0,
     this.isVaccineRack = true,
+    this.isMultiZone = false,
   });
 
   @override
@@ -108,16 +110,9 @@ class _SensorTrendChartState extends State<SensorTrendChart> {
 
   static const int _maxPoints = 48;
 
-  // Menyaring log sesuai node aktif lalu mengurutkan menurut timestamp.
-  // Bila filter menyisakan kurang dari dua titik, data mentah dipakai agar grafik
-  // tidak kosong hanya karena device_id tidak lengkap.
+  // Mengurutkan log dari terlama ke terbaru untuk sumbu X (kiri -> kanan).
   List<SensorModel> _prepareChronological(List<SensorModel> raw) {
-    final filtered = widget.isVaccineRack
-        ? raw.where((e) => e.deviceId != 'device_2').toList()
-        : raw.where((e) => e.deviceId == 'device_2').toList();
-    final base = filtered.length >= 2 ? filtered : raw.toList();
-
-    final indexed = base.reversed.toList().asMap().entries.toList();
+    final indexed = raw.reversed.toList().asMap().entries.toList();
     indexed.sort((a, b) {
       final ta = DateTime.tryParse((a.value.waktu ?? '').trim());
       final tb = DateTime.tryParse((b.value.waktu ?? '').trim());
@@ -173,6 +168,36 @@ class _SensorTrendChartState extends State<SensorTrendChart> {
     return false;
   }
 
+  // Evaluasi anomali per item; pada mode gabungan, tiap titik dicek memakai
+  // standar zonanya sendiri agar data Ruang Steril (15-25 C) tidak dianggap bahaya.
+  bool _isModelAnomalous(SensorModel model) {
+    if (!widget.isMultiZone || _selectedMetric == ChartMetric.gas) {
+      return _isValAnomalous(_extractValue(model));
+    }
+    final isSterile = model.deviceId == 'device_2';
+    if (_selectedMetric == ChartMetric.suhu) {
+      final minT = isSterile ? 15.0 : widget.tempMin;
+      final maxT = isSterile ? 25.0 : widget.tempMax;
+      return model.suhu < minT || model.suhu > maxT;
+    }
+    final minH = isSterile ? 45.0 : widget.humidityMin;
+    final maxH = isSterile ? 60.0 : widget.humidityMax;
+    return model.kelembapan < minH || model.kelembapan > maxH;
+  }
+
+  String _extractTimeLabel(SensorModel item, {required bool includeSeconds}) {
+    final timeStr = item.waktu ?? '';
+    final parts = timeStr.split(' ');
+    final timePart = parts.length > 1 ? parts[1] : timeStr;
+    if (includeSeconds && timePart.length >= 8) {
+      return timePart.substring(0, 8);
+    }
+    if (timePart.length >= 5) {
+      return timePart.substring(0, 5);
+    }
+    return timePart;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.historyData.isEmpty) {
@@ -197,10 +222,17 @@ class _SensorTrendChartState extends State<SensorTrendChart> {
       if (rawVals[i] > maxVal) maxVal = rawVals[i];
     }
 
-    // Selalu bingkai garis batas bawah & atas dengan ruang bernapas rapat proporsional
-    // agar grafik memenuhi area secara optimal (tidak terlalu kecil/hampa di sisi atas/bawah).
-    double effectiveMin = minVal < _lowerReferenceLine ? minVal : _lowerReferenceLine;
-    double effectiveMax = _upperThreshold != null && _upperThreshold! > maxVal
+    // Mode gabungan hanya menggambar garis batas pada Kadar Gas karena batas
+    // suhu/kelembapan Rak Vaksin (2-8 C) berbeda dengan Ruang Steril (15-25 C).
+    final bool showRangeThresholds =
+        !widget.isMultiZone || _selectedMetric == ChartMetric.gas;
+
+    double effectiveMin = showRangeThresholds && _lowerReferenceLine < minVal
+        ? _lowerReferenceLine
+        : minVal;
+    double effectiveMax = showRangeThresholds &&
+            _upperThreshold != null &&
+            _upperThreshold! > maxVal
         ? _upperThreshold!
         : maxVal;
 
@@ -232,6 +264,21 @@ class _SensorTrendChartState extends State<SensorTrendChart> {
     if (minVal >= 0 && chartMinY < 0) {
       chartMinY = 0;
     }
+
+    // Pilih indeks label X yang merata dan selalu menyertakan titik paling awal & terbaru.
+    final Set<int> labelIndices = {};
+    if (items.length <= 4) {
+      for (int i = 0; i < items.length; i++) {
+        labelIndices.add(i);
+      }
+    } else {
+      for (int k = 0; k < 4; k++) {
+        labelIndices.add((k * (items.length - 1) / 3).round());
+      }
+    }
+    final bool showSeconds = items.length > 1 &&
+        _extractTimeLabel(items.first, includeSeconds: false) ==
+            _extractTimeLabel(items.last, includeSeconds: false);
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -297,10 +344,20 @@ class _SensorTrendChartState extends State<SensorTrendChart> {
           // Threshold Limit Indicator Banner
           Builder(
             builder: (context) {
-              final anomalousCount = items.where((e) => _isValAnomalous(_extractValue(e))).length;
-              final String rangeText = _lowerThreshold != null
-                  ? '${_lowerThreshold!.toStringAsFixed(0)}–${_upperThreshold!.toStringAsFixed(0)} $_metricUnit'
-                  : '< ${_upperThreshold!.toStringAsFixed(0)} $_metricUnit';
+              final anomalousCount = items.where(_isModelAnomalous).length;
+              final String bannerText;
+              if (!showRangeThresholds) {
+                bannerText = anomalousCount > 0
+                    ? '$anomalousCount Anomali • Gabungan 2 Zona'
+                    : 'Normal • Gabungan Rak Vaksin & Ruang Steril';
+              } else {
+                final String rangeText = _lowerThreshold != null
+                    ? '${_lowerThreshold!.toStringAsFixed(0)}–${_upperThreshold!.toStringAsFixed(0)} $_metricUnit'
+                    : '< ${_upperThreshold!.toStringAsFixed(0)} $_metricUnit';
+                bannerText = anomalousCount > 0
+                    ? '$anomalousCount Anomali • Batas Standar $rangeText'
+                    : 'Normal • Seluruh Titik Dalam Batas $rangeText';
+              }
 
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -322,9 +379,7 @@ class _SensorTrendChartState extends State<SensorTrendChart> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        anomalousCount > 0
-                            ? '$anomalousCount Anomali • Batas Standar $rangeText'
-                            : 'Normal • Seluruh Titik Dalam Batas $rangeText',
+                        bannerText,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
@@ -348,7 +403,7 @@ class _SensorTrendChartState extends State<SensorTrendChart> {
                 clipData: const FlClipData.all(),
                 extraLinesData: ExtraLinesData(
                   horizontalLines: [
-                    if (_upperThreshold != null)
+                    if (showRangeThresholds && _upperThreshold != null)
                       HorizontalLine(
                         y: _upperThreshold!,
                         color: AppColors.alertRed.withAlpha(220),
@@ -367,24 +422,25 @@ class _SensorTrendChartState extends State<SensorTrendChart> {
                               'Maks (${line.y.toStringAsFixed(0)} $_metricUnit)',
                         ),
                       ),
-                    HorizontalLine(
-                      y: _lowerReferenceLine,
-                      color: const Color(0xFF0284C7),
-                      strokeWidth: 1.3,
-                      dashArray: [6, 4],
-                      label: HorizontalLineLabel(
-                        show: true,
-                        alignment: Alignment.bottomRight,
-                        padding: const EdgeInsets.only(right: 8, top: 2),
-                        style: const TextStyle(
-                          color: Color(0xFF0284C7),
-                          fontSize: 9.0,
-                          fontWeight: FontWeight.w700,
+                    if (showRangeThresholds)
+                      HorizontalLine(
+                        y: _lowerReferenceLine,
+                        color: const Color(0xFF0284C7),
+                        strokeWidth: 1.3,
+                        dashArray: [6, 4],
+                        label: HorizontalLineLabel(
+                          show: true,
+                          alignment: Alignment.bottomRight,
+                          padding: const EdgeInsets.only(right: 8, top: 2),
+                          style: const TextStyle(
+                            color: Color(0xFF0284C7),
+                            fontSize: 9.0,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          labelResolver: (line) =>
+                              'Min (${line.y.toStringAsFixed(0)} $_metricUnit)',
                         ),
-                        labelResolver: (line) =>
-                            'Min (${line.y.toStringAsFixed(0)} $_metricUnit)',
                       ),
-                    ),
                   ],
                 ),
                 gridData: FlGridData(
@@ -431,32 +487,30 @@ class _SensorTrendChartState extends State<SensorTrendChart> {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 22,
-                      interval: items.length > 1
-                          ? ((items.length - 1) / 4).ceilToDouble().clamp(1.0, 1000.0)
-                          : 1.0,
+                      interval: 1.0,
                       getTitlesWidget: (value, meta) {
                         final idx = value.round();
-                        if (idx >= 0 && idx < items.length) {
-                          if ((value - idx).abs() > 0.05) return const SizedBox.shrink();
-                          final timeStr = items[idx].waktu ?? '';
-                          final parts = timeStr.split(' ');
-                          String displayTime = parts.length > 1 ? parts[1] : timeStr;
-                          if (displayTime.length >= 5) {
-                            displayTime = displayTime.substring(0, 5); // HH:mm
-                          }
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              displayTime,
-                              style: const TextStyle(
-                                color: AppColors.textMuted,
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          );
+                        if ((value - idx).abs() > 0.05 ||
+                            !labelIndices.contains(idx) ||
+                            idx < 0 ||
+                            idx >= items.length) {
+                          return const SizedBox.shrink();
                         }
-                        return const SizedBox.shrink();
+                        final displayTime = _extractTimeLabel(
+                          items[idx],
+                          includeSeconds: showSeconds,
+                        );
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            displayTime,
+                            style: const TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        );
                       },
                     ),
                   ),
@@ -464,8 +518,10 @@ class _SensorTrendChartState extends State<SensorTrendChart> {
                   topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 ),
                 borderData: FlBorderData(show: false),
-                minX: -0.25,
-                maxX: ((items.length - 1).toDouble() + 0.25).clamp(0.0, 1000.0),
+                minX: items.length == 1 ? -0.5 : -0.25,
+                maxX: items.length == 1
+                    ? 0.5
+                    : ((items.length - 1).toDouble() + 0.25).clamp(0.0, 1000.0),
                 minY: chartMinY,
                 maxY: chartMaxY,
                 lineTouchData: LineTouchData(

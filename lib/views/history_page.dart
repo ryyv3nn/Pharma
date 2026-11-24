@@ -21,6 +21,8 @@ class HistoryPage extends StatefulWidget {
 }
 
 class _HistoryPageState extends State<HistoryPage> {
+  String? _selectedDeviceId;
+
   @override
   // Memuat log saat halaman pertama dibuka. Bila provider sudah punya data,
   // request tidak diulang agar perpindahan tab terasa instan.
@@ -47,11 +49,13 @@ class _HistoryPageState extends State<HistoryPage> {
           floatingActionButton: SizedBox(
             height: 38,
             child: FloatingActionButton.extended(
-              onPressed: provider.historyList.isEmpty
+              onPressed: provider.historyForDevice(_selectedDeviceId).isEmpty
                   ? null
                   : () async {
                       try {
-                        final path = await provider.exportToCsv();
+                        final path = await provider.exportToCsv(
+                          deviceId: _selectedDeviceId,
+                        );
                         if (path != null && context.mounted) {
                           AppToast.success(context, 'Berhasil diexport ke:\n$path');
                         }
@@ -199,8 +203,19 @@ class _HistoryPageState extends State<HistoryPage> {
           );
         }
 
-        final double avgSuhu = provider.historyList.map((e) => e.suhu).reduce((a, b) => a + b) / provider.historyList.length;
-        final double avgGas = provider.historyList.map((e) => e.kadarGas).reduce((a, b) => a + b) / provider.historyList.length;
+        final displayList = provider.historyForDevice(_selectedDeviceId);
+        final bool isSterilFilter = _selectedDeviceId == 'device_2';
+        final double chartTempMin = isSterilFilter ? 15.0 : sensorProvider.tempMin;
+        final double chartTempMax = isSterilFilter ? 25.0 : sensorProvider.tempMax;
+        final double chartHumMin = isSterilFilter ? 45.0 : sensorProvider.humidityMin;
+        final double chartHumMax = isSterilFilter ? 60.0 : sensorProvider.humidityMax;
+
+        final double avgSuhu = displayList.isEmpty
+            ? 0.0
+            : displayList.map((e) => e.suhu).reduce((a, b) => a + b) / displayList.length;
+        final double avgGas = displayList.isEmpty
+            ? 0.0
+            : displayList.map((e) => e.kadarGas).reduce((a, b) => a + b) / displayList.length;
 
         return ListView(
           physics: const BouncingScrollPhysics(),
@@ -211,98 +226,176 @@ class _HistoryPageState extends State<HistoryPage> {
             bottom: 84,
           ),
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _buildMetricPillCard(
-                    icon: Icons.list_alt_rounded,
-                    title: 'Total Log',
-                    value: '${provider.historyList.length}',
-                    color: AppColors.pharmaNavy,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: _buildMetricPillCard(
-                    icon: Icons.thermostat_rounded,
-                    title: 'Rata Suhu',
-                    value: '${avgSuhu.toStringAsFixed(1)} °C',
-                    color: AppColors.tempRed,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: _buildMetricPillCard(
-                    icon: Icons.cloud_outlined,
-                    title: 'Rata Gas',
-                    value: '${avgGas.toStringAsFixed(1)} PPM',
-                    color: AppColors.warningAmber,
-                  ),
-                ),
-              ],
-            ),
+            _buildZoneSelector(),
             const SizedBox(height: AppSpacing.md),
-            BotanicVectorCardWatermark(
-              size: 140,
-              opacity: 0.035,
-              alignment: Alignment.topRight,
-              child: SensorTrendChart(
-                historyData: provider.historyList,
-                tempMin: sensorProvider.currentTempMin,
-                tempMax: sensorProvider.currentTempMax,
-                humidityMin: sensorProvider.currentHumidityMin,
-                humidityMax: sensorProvider.currentHumidityMax,
-                gasMax: sensorProvider.gasMax,
-                isVaccineRack: sensorProvider.isVaccineRack,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md + 2),
-            Row(
-              children: [
-                const Text(
-                  'Catatan Terkini',
-                  style: AppTypography.subtitle,
+            if (displayList.isEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 48, horizontal: AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.cardWhite,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  border: Border.all(color: AppColors.containerLow),
                 ),
-                const Spacer(),
-                Container(
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.pharmaNavy.withAlpha(20),
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                  ),
-                  child: Text(
-                    '${provider.historyList.length} Catatan',
-                    textAlign: TextAlign.center,
-                    style: AppTypography.badge.copyWith(
+                child: const Column(
+                  children: [
+                    Icon(Icons.inbox_outlined, size: 42, color: AppColors.textMuted),
+                    SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'Belum ada log untuk zona ini pada 200 riwayat terakhir.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: AppColors.textMuted),
+                    ),
+                  ],
+                ),
+              )
+            else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildMetricPillCard(
+                      icon: Icons.list_alt_rounded,
+                      title: 'Total Log',
+                      value: '${displayList.length}',
                       color: AppColors.pharmaNavy,
                     ),
                   ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _buildMetricPillCard(
+                      icon: Icons.thermostat_rounded,
+                      title: 'Rata Suhu',
+                      value: '${avgSuhu.toStringAsFixed(1)} °C',
+                      color: AppColors.tempRed,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _buildMetricPillCard(
+                      icon: Icons.cloud_outlined,
+                      title: 'Rata Gas',
+                      value: '${avgGas.toStringAsFixed(1)} PPM',
+                      color: AppColors.warningAmber,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              BotanicVectorCardWatermark(
+                size: 140,
+                opacity: 0.035,
+                alignment: Alignment.topRight,
+                child: SensorTrendChart(
+                  historyData: displayList,
+                  tempMin: chartTempMin,
+                  tempMax: chartTempMax,
+                  humidityMin: chartHumMin,
+                  humidityMax: chartHumMax,
+                  gasMax: sensorProvider.gasMax,
+                  isVaccineRack: !isSterilFilter,
+                  isMultiZone: _selectedDeviceId == null,
                 ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: provider.historyList.length,
-              itemBuilder: (context, index) {
-                final item = provider.historyList[index];
-                final logNumber = provider.historyList.length - index;
-                return _buildLogCard(item, logNumber, sensorProvider);
-              },
-            ),
+              ),
+              const SizedBox(height: AppSpacing.md + 2),
+              Row(
+                children: [
+                  const Text(
+                    'Catatan Terkini',
+                    style: AppTypography.subtitle,
+                  ),
+                  const Spacer(),
+                  Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.pharmaNavy.withAlpha(20),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    ),
+                    child: Text(
+                      '${displayList.length} Catatan',
+                      textAlign: TextAlign.center,
+                      style: AppTypography.badge.copyWith(
+                        color: AppColors.pharmaNavy,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: displayList.length,
+                itemBuilder: (context, index) {
+                  final item = displayList[index];
+                  final logNumber = displayList.length - index;
+                  return _buildLogCard(item, logNumber, sensorProvider);
+                },
+              ),
+            ],
           ],
         );
       },
     );
   }
 
-  // Satu kartu log. Nilai di luar ambang diberi warna peringatan; nomor log
-  // dihitung dari urutan tampil (terbaru = 1).
+  Widget _buildZoneSelector() {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: AppColors.cardWhite,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.containerLow, width: 1.0),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0C0E555A),
+            blurRadius: 10,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _buildZoneTab('Semua', null),
+          _buildZoneTab('Rak Vaksin', 'device_1'),
+          _buildZoneTab('Ruang Steril', 'device_2'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildZoneTab(String label, String? deviceId) {
+    final isSelected = _selectedDeviceId == deviceId;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _selectedDeviceId = deviceId),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? AppColors.pharmaNavy : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w800,
+              color: isSelected ? Colors.white : AppColors.textMuted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Satu kartu log. Nilai di luar ambang diberi warna peringatan; ambang suhu
+  // mengikuti node log itu sendiri (Rak Vaksin 2-8 C atau Ruang Steril 15-25 C).
   Widget _buildLogCard(SensorModel item, int logNumber, SensorProvider sensorProvider) {
-    final double minT = sensorProvider.currentTempMin;
-    final double maxT = sensorProvider.currentTempMax;
+    final bool isSteril = item.deviceId == 'device_2';
+    final double minT = isSteril ? 15.0 : sensorProvider.tempMin;
+    final double maxT = isSteril ? 25.0 : sensorProvider.tempMax;
     final bool tempAlert = item.suhu > maxT || item.suhu < minT;
     final bool gasAlert = item.kadarGas > sensorProvider.gasMax;
     final bool doorAlert = item.isPintuTerbuka;
@@ -347,16 +440,33 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
               ),
               const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  displayTime,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textMuted,
-                    fontWeight: FontWeight.w500,
-                  ),
+              Text(
+                displayTime,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textMuted,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
+              if (_selectedDeviceId == null) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.inputBg,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    isSteril ? 'Steril' : 'Vaksin',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                ),
+              ],
+              const Spacer(),
               // Ikon status pintu & UV di baris atas
               Icon(
                 doorAlert ? Icons.door_sliding_outlined : Icons.lock_outline,

@@ -156,10 +156,13 @@ class ApiService {
   }
 
   // GET /sensor — butuh token.
-  // Ambil log terbaru (limit default 50); 401 -> hapus sesi + ke login.
-  Future<List<SensorModel>> fetchSensorHistory() async {
+  // Ambil log terbaru (default 200 agar kedua node tetap terwakili); 401 -> ke login.
+  Future<List<SensorModel>> fetchSensorHistory({int limit = 200}) async {
     final ip = await resolveReachableIp();
-    final url = buildUrl(ip, '/sensor');
+    final safeLimit = limit.clamp(1, 500);
+    final url = buildUrl(ip, '/sensor').replace(
+      queryParameters: {'limit': safeLimit.toString()},
+    );
 
     try {
       final token = await _storageService.getAuthToken();

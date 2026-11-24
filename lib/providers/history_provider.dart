@@ -11,6 +11,7 @@ import '../services/api_service.dart';
 // Widget tidak boleh memanggil ApiService sendiri; semua akses data lewat sini.
 class HistoryProvider extends ChangeNotifier {
   final ApiService _apiService = ApiService();
+  List<SensorModel> _allHistory = [];
   List<SensorModel> _historyList = [];
   bool _isLoading = false;
   String? _errorMessage;
@@ -18,6 +19,15 @@ class HistoryProvider extends ChangeNotifier {
   List<SensorModel> get historyList => _historyList;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+
+  // Mengembalikan maks 50 log terbaru sesuai filter zona (null = semua zona).
+  List<SensorModel> historyForDevice(String? deviceId) {
+    if (deviceId == null) return _historyList;
+    final filtered = deviceId == 'device_2'
+        ? _allHistory.where((e) => e.deviceId == 'device_2')
+        : _allHistory.where((e) => e.deviceId != 'device_2');
+    return filtered.take(50).toList();
+  }
 
   // Memuat log pertama kali provider dibuat (saat aplikasi start).
   HistoryProvider() {
@@ -33,13 +43,10 @@ Future<void> fetchHistory() async {
 
     final stopwatch = Stopwatch()..start();
     try {
-      final result = await _apiService.fetchSensorHistory();
-      // Batasi maksimal 50 log terbaru agar aplikasi mobile tetap ringan & tidak kebanyakan
-      if (result.length > 50) {
-        _historyList = result.take(50).toList();
-      } else {
-        _historyList = result;
-      }
+      final result = await _apiService.fetchSensorHistory(limit: 200);
+      _allHistory = result;
+      // Batasi maksimal 50 log terbaru agar tampilan mobile tetap ringan
+      _historyList = result.length > 50 ? result.take(50).toList() : result;
       _errorMessage = null;
     } catch (e) {
       // Pesan error diterjemahkan ke bahasa manusia; pengguna tidak perlu melihat
@@ -63,21 +70,23 @@ Future<void> fetchHistory() async {
     }
   }
 
-  // Menulis seluruh log yang sedang tampil ke berkas CSV di folder dokumen
+  // Menulis seluruh log sesuai filter aktif ke berkas CSV di folder dokumen
   // aplikasi.
-  Future<String?> exportToCsv() async {
-    if (_historyList.isEmpty) {
+  Future<String?> exportToCsv({String? deviceId}) async {
+    final targetList = historyForDevice(deviceId);
+    if (targetList.isEmpty) {
       return null;
     }
 
     try {
       List<List<dynamic>> csvData = [
-        ['No', 'Suhu (°C)', 'Kelembapan (%)', 'Kadar Gas (PPM)', 'Cahaya (Lux)', 'Status Pintu', 'Status UV', 'Status', 'Waktu'],
-        ..._historyList.asMap().entries.map((entry) {
+        ['No', 'Zona', 'Suhu (°C)', 'Kelembapan (%)', 'Kadar Gas (PPM)', 'Cahaya (Lux)', 'Status Pintu', 'Status UV', 'Status', 'Waktu'],
+        ...targetList.asMap().entries.map((entry) {
           final index = entry.key + 1;
           final item = entry.value;
           return [
             index,
+            item.deviceId == 'device_2' ? 'Ruang Steril' : 'Rak Vaksin',
             item.suhu,
             item.kelembapan,
             item.kadarGas,
