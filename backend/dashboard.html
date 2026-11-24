@@ -2103,11 +2103,23 @@
             <span>Riwayat Sensor</span>
           </span>
           <div class="panel-actions">
+            <select id="historyDeviceFilter" class="search-box" style="width:130px;" onchange="renderSensorTable()">
+              <option value="all">Semua Device</option>
+              <option value="device_1">Device 1 (Vaksin)</option>
+              <option value="device_2">Device 2 (Steril)</option>
+            </select>
+            <select id="historyStatusFilter" class="search-box" style="width:125px;" onchange="renderSensorTable()">
+              <option value="all">Semua Status</option>
+              <option value="Aman">Aman</option>
+              <option value="Peringatan">Peringatan</option>
+              <option value="Bahaya">Bahaya</option>
+            </select>
             <select id="historyLimitSelect" class="search-box" style="width:105px;" onchange="refreshDashboardData()">
               <option value="10">10 data</option>
               <option value="25">25 data</option>
               <option value="50" selected>50 data</option>
               <option value="100">100 data</option>
+              <option value="200">200 data</option>
             </select>
             <button id="btnSortOrder" class="btn" onclick="toggleSensorSort()" title="Balik urutan (Terbaru / Terlama)">
               <svg id="sortIcon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -3254,17 +3266,33 @@
       }
     }
 
-    function renderSensorTable() {
-      if (!sensorsCache || sensorsCache.length === 0) return;
+    function getFilteredSensors() {
+      if (!sensorsCache || sensorsCache.length === 0) return [];
+      const devFilter = document.getElementById("historyDeviceFilter")?.value || "all";
+      const statFilter = document.getElementById("historyStatusFilter")?.value || "all";
 
-      const sorted = [...sensorsCache].sort((a, b) => {
+      return sensorsCache.filter(r => {
+        const matchDev = (devFilter === "all") || (r.device_id === devFilter);
+        const matchStat = (statFilter === "all") || (r.status === statFilter);
+        return matchDev && matchStat;
+      });
+    }
+
+    function renderSensorTable() {
+      const tbody = document.getElementById("sensorTableBody");
+      if (!tbody) return;
+
+      const filtered = getFilteredSensors();
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding:18px; color:var(--text-secondary);">Tidak ada log yang sesuai filter</td></tr>`;
+        return;
+      }
+
+      const sorted = [...filtered].sort((a, b) => {
         const idA = Number(a.id) || 0;
         const idB = Number(b.id) || 0;
         return sensorSortAsc ? (idA - idB) : (idB - idA);
       });
-
-      const tbody = document.getElementById("sensorTableBody");
-      if (!tbody) return;
 
       tbody.innerHTML = sorted.map(r => {
         const bClass = r.status === "Bahaya" ? "badge-danger" : (r.status === "Peringatan" ? "badge-warn" : "badge-ok");
@@ -3286,12 +3314,13 @@
     }
 
     function exportSensorsCsv() {
-      if (!sensorsCache || sensorsCache.length === 0) {
-        showToast('Belum ada data sensor', false);
+      const listToExport = getFilteredSensors();
+      if (!listToExport || listToExport.length === 0) {
+        showToast('Belum ada data sensor untuk diexport', false);
         return;
       }
       const headers = ['ID', 'Device', 'Suhu', 'Kelembapan', 'Gas', 'Cahaya (Lux)', 'Pintu', 'UV', 'Status', 'Waktu'];
-      const rows = sensorsCache.map(r => [
+      const rows = listToExport.map(r => [
         r.id ?? '', r.device_id, r.suhu, r.kelembapan, r.kadar_gas, Math.round(Number(r.cahaya ?? 0)),
         r.status_pintu == 1 ? 'Terbuka' : 'Tertutup',
         r.status_uv == 1 ? 'ON' : 'OFF',
@@ -3305,7 +3334,7 @@
       a.download = `pharma_sensor_${new Date().toISOString().slice(0,10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      showToast('File CSV berhasil diunduh');
+      showToast(`Export ${listToExport.length} baris CSV berhasil diunduh`);
     }
 
     updateAuthUi();
