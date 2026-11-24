@@ -270,18 +270,25 @@ void publishSensor() {
   if (isnan(suhuUtama)) suhuUtama = 0.0;
   float humUtama = (!isnan(humidityDHT)) ? humidityDHT : 0.0;
 
+  // Konversi ADC ESP32 (0 - 4095) ke standar PPM (0 - 100) dan Lux (0 - 500)
+  // Ambang batas aman gudang farmasi adalah maksimal 50 PPM & 300 Lux
+  float gasPPM = gasValue * (100.0 / 4095.0);
+  float luxValue = lightValue * (500.0 / 4095.0);
+
   // Format JSON standar Pharma Medic (kompatibel Mobile & Cloud Backend)
   String payload = "{";
   payload += "\"device_id\":\"device_1\",";
   payload += "\"suhu\":" + jsonFloat(suhuUtama) + ",";
   payload += "\"kelembapan\":" + jsonFloat(humUtama) + ",";
-  payload += "\"kadar_gas\":" + String(gasValue) + ",";
-  payload += "\"cahaya\":" + String(lightValue) + ",";
+  payload += "\"kadar_gas\":" + jsonFloat(gasPPM, 1) + ",";
+  payload += "\"cahaya\":" + jsonFloat(luxValue, 0) + ",";
   payload += "\"status_kipas\":" + String(fanRunning ? 1 : 0) + ",";
   payload += "\"status_pompa\":" + String(pumpRunning ? 1 : 0) + ",";
   payload += "\"status_buzzer\":" + String(buzzerRunning ? 1 : 0) + ",";
   payload += "\"status_pintu\":0,";
   payload += "\"status_uv\":0,";
+  payload += "\"raw_gas\":" + String(gasValue) + ",";
+  payload += "\"raw_light\":" + String(lightValue) + ",";
   payload += "\"temperature_ds18b20\":" + jsonFloat(temperatureDS) + ",";
   payload += "\"temperature_dht\":" + jsonFloat(temperatureDHT) + ",";
   payload += "\"gas_alarm\":" + String(gasAlarm ? "true" : "false");
