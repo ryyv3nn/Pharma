@@ -70,6 +70,8 @@ class MqttService {
         _client!.subscribe('greenhouse/sensor', MqttQos.atMostOnce);
         _client!.subscribe('pharma/device1/sensor', MqttQos.atMostOnce);
         _client!.subscribe('pharma/device2/sensor', MqttQos.atMostOnce);
+        _client!.subscribe('vaksin/dev1/sensor', MqttQos.atMostOnce);
+        _client!.subscribe('vaksin/dev2/sensor', MqttQos.atMostOnce);
 
         _client!.updates?.listen((List<MqttReceivedMessage<MqttMessage>> messages) {
           final recMess = messages[0].payload as MqttPublishMessage;

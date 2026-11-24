@@ -53,13 +53,27 @@ factory SensorModel.fromJson(
     Map<String, dynamic> json, {
     String defaultDeviceId = 'device_1',
   }) {
+    String devId = json['device_id'] as String? ??
+        json['deviceId'] as String? ??
+        json['device'] as String? ??
+        defaultDeviceId;
+    if (devId.toLowerCase().contains('device_1') || devId.toLowerCase().contains('dev1')) {
+      devId = 'device_1';
+    } else if (devId.toLowerCase().contains('device_2') || devId.toLowerCase().contains('dev2')) {
+      devId = 'device_2';
+    }
+
     return SensorModel(
-      deviceId:
-          json['device_id'] as String? ??
-          json['deviceId'] as String? ??
-          defaultDeviceId,
-      suhu: (json['suhu'] as num?)?.toDouble() ?? 0.0,
-      kelembapan: (json['kelembapan'] as num?)?.toDouble() ?? 0.0,
+      deviceId: devId,
+      suhu: (json['suhu'] as num?)?.toDouble() ??
+          (json['temperature_ds18b20'] as num?)?.toDouble() ??
+          (json['temperature_dht'] as num?)?.toDouble() ??
+          (json['temp'] as num?)?.toDouble() ??
+          0.0,
+      kelembapan: (json['kelembapan'] as num?)?.toDouble() ??
+          (json['humidity_dht'] as num?)?.toDouble() ??
+          (json['humidity'] as num?)?.toDouble() ??
+          0.0,
       kadarGas:
           (json['kadar_gas'] as num?)?.toDouble() ??
           (json['gas'] as num?)?.toDouble() ??
@@ -74,16 +88,17 @@ factory SensorModel.fromJson(
           (json['status_kipas'] as num?)?.toInt() ??
           (json['kipas'] as num?)?.toInt() ??
           (json['fan'] as num?)?.toInt() ??
-          0,
+          (json['fan'] == true || json['fan'] == 'true' ? 1 : 0),
       statusBuzzer:
           (json['status_buzzer'] as num?)?.toInt() ??
           (json['buzzer'] as num?)?.toInt() ??
-          0,
+          (json['buzzer'] == true || json['buzzer'] == 'true' ? 1 : 0),
       statusPompa:
           (json['status_pompa'] as num?)?.toInt() ??
           (json['pompa'] as num?)?.toInt() ??
           (json['pump'] as num?)?.toInt() ??
-          0,
+          (json['water_pump'] as num?)?.toInt() ??
+          (json['water_pump'] == true || json['water_pump'] == 'true' ? 1 : 0),
       deteksiGerak:
           (json['deteksi_gerak'] as num?)?.toInt() ??
           (json['pir'] as num?)?.toInt() ??

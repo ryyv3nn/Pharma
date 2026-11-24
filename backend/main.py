@@ -381,13 +381,41 @@ class GenericResponse(BaseModel):
 # Baris disimpan ke sensor_data; gagal simpan hanya dicatat, tidak menghentikan layanan.
 def process_and_save_sensor_data(data: dict):
     """Pengolahan Data Cloud: Analisis batas aman cold-chain vaksin & gas berbahaya"""
-    device_id = str(data.get("device_id", data.get("deviceId", "device_1")))
-    suhu = float(data.get("suhu", 0.0))
-    kelembapan = float(data.get("kelembapan", 0.0))
-    kadar_gas = float(data.get("kadar_gas", data.get("gas", 0.0)))
-    cahaya = float(data.get("cahaya", data.get("lux", 0.0)))
-    status_pintu = int(data.get("status_pintu", 0))
-    status_uv = int(data.get("status_uv", 0))
+    device_raw = str(data.get("device_id", data.get("deviceId", data.get("device", "device_1"))))
+    if "dev2" in device_raw.lower() or "device_2" in device_raw.lower():
+        device_id = "device_2"
+    else:
+        device_id = "device_1"
+
+    try:
+        suhu = float(data.get("suhu", data.get("temperature_ds18b20", data.get("temperature_dht", 0.0))))
+    except (ValueError, TypeError):
+        suhu = 0.0
+
+    try:
+        kelembapan = float(data.get("kelembapan", data.get("humidity_dht", data.get("humidity", 0.0))))
+    except (ValueError, TypeError):
+        kelembapan = 0.0
+
+    try:
+        kadar_gas = float(data.get("kadar_gas", data.get("gas", 0.0)))
+    except (ValueError, TypeError):
+        kadar_gas = 0.0
+
+    try:
+        cahaya = float(data.get("cahaya", data.get("lux", data.get("light", 0.0))))
+    except (ValueError, TypeError):
+        cahaya = 0.0
+
+    try:
+        status_pintu = int(data.get("status_pintu", 0))
+    except (ValueError, TypeError):
+        status_pintu = 0
+
+    try:
+        status_uv = int(data.get("status_uv", 0))
+    except (ValueError, TypeError):
+        status_uv = 0
 
     if kadar_gas > 50 or status_pintu == 1 or cahaya > 600:
         status = "Bahaya"
@@ -413,8 +441,7 @@ def process_and_save_sensor_data(data: dict):
 
 mqtt_client_global = None
 
-# Berlangganan tiga pola topik agar firmware lama dan baru sama-sama masuk:
-# pharma/sensor, greenhouse/sensor, dan pharma/<device>/sensor.
+# Berlangganan pola topik agar firmware fisik, simulasi, dan lama masuk:
 def on_mqtt_connect(client, userdata, flags, rc, properties=None):
     global mqtt_client_global
     mqtt_client_global = client
@@ -422,6 +449,7 @@ def on_mqtt_connect(client, userdata, flags, rc, properties=None):
     client.subscribe("pharma/sensor")
     client.subscribe("greenhouse/sensor")
     client.subscribe("pharma/+/sensor")
+    client.subscribe("vaksin/+/sensor")
 
 # Payload JSON apa pun langsung diproses. Pesan rusak dicatat dan dilewati;
 # satu paket cacat tidak boleh menghentikan listener.
