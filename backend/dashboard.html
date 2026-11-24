@@ -974,6 +974,7 @@
 
     select.search-box {
       cursor: pointer;
+      padding: 0 26px 0 12px;
     }
 
     .endpoint-list {
@@ -2103,18 +2104,18 @@
             <span>Riwayat Sensor</span>
           </span>
           <div class="panel-actions">
-            <select id="historyDeviceFilter" class="search-box" style="width:130px;" onchange="renderSensorTable()">
+            <select id="historyDeviceFilter" class="search-box" style="min-width:145px;" onchange="renderSensorTable()">
               <option value="all">Semua Device</option>
               <option value="device_1">Device 1 (Vaksin)</option>
               <option value="device_2">Device 2 (Steril)</option>
             </select>
-            <select id="historyStatusFilter" class="search-box" style="width:125px;" onchange="renderSensorTable()">
+            <select id="historyStatusFilter" class="search-box" style="min-width:145px;" onchange="renderSensorTable()">
               <option value="all">Semua Status</option>
               <option value="Aman">Aman</option>
               <option value="Peringatan">Peringatan</option>
               <option value="Bahaya">Bahaya</option>
             </select>
-            <select id="historyLimitSelect" class="search-box" style="width:105px;" onchange="refreshDashboardData()">
+            <select id="historyLimitSelect" class="search-box" style="min-width:110px;" onchange="refreshDashboardData()">
               <option value="10">10 data</option>
               <option value="25">25 data</option>
               <option value="50" selected>50 data</option>
