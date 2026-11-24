@@ -2826,6 +2826,9 @@
       }
     }
 
+    let hasLiveTelemetry = false;
+    let liveCache = {};
+
     async function pollLiveTelemetry() {
       if (!bearerToken) return;
       try {
@@ -2833,7 +2836,10 @@
         if (res.ok) {
           const live = await res.json();
           if (live && (live.device_1 || live.device_2)) {
-            updateMetricCards(live.device_1, live.device_2);
+            hasLiveTelemetry = true;
+            liveCache = live;
+            const dbDev2 = Array.isArray(sensorsCache) ? sensorsCache.find(r => r.device_id === 'device_2') : null;
+            updateMetricCards(live.device_1, live.device_2 || dbDev2);
           }
         }
       } catch (e) {}
@@ -2864,11 +2870,14 @@
           const rows = await listRes.json();
           sensorsCache = rows;
           if (rows && rows.length > 0) {
-            // Opsi A: Kartu metrik iklim (Suhu, Lembap, Gas, Cahaya) difokuskan ke Node 1 (Rak Vaksin).
-            // Status pintu dan UV mengambil status aktif (apabila terbuka/aktif di Node 1 atau Node 2).
             const dev1Data = rows.find(r => r.device_id === 'device_1') || rows[0];
             const dev2Data = rows.find(r => r.device_id === 'device_2');
-            updateMetricCards(dev1Data, dev2Data);
+            // ponytail: jangan timpa kartu live RAM dengan log DB lama 60 detik kecuali belum ada data live
+            if (!hasLiveTelemetry) {
+              updateMetricCards(dev1Data, dev2Data);
+            } else {
+              updateMetricCards(liveCache.device_1 || dev1Data, liveCache.device_2 || dev2Data);
+            }
             renderSensorTable();
           }
         }
@@ -3366,6 +3375,7 @@
     updateAuthUi();
     selectEndpoint(ENDPOINTS[0]);
     if (bearerToken) {
+      pollLiveTelemetry();
       refreshDashboardData();
       loadUsersData();
     } else {

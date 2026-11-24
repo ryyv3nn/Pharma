@@ -429,14 +429,30 @@ def process_and_save_sensor_data(data: dict, force_save: bool = False):
     except (ValueError, TypeError):
         status_uv = 0
 
+    try:
+        status_kipas = int(data.get("status_kipas", data.get("kipas", 0)))
+    except (ValueError, TypeError):
+        status_kipas = 0
+
+    try:
+        status_pompa = int(data.get("status_pompa", data.get("pompa", 0)))
+    except (ValueError, TypeError):
+        status_pompa = 0
+
+    try:
+        status_buzzer = int(data.get("status_buzzer", data.get("buzzer", 0)))
+    except (ValueError, TypeError):
+        status_buzzer = 0
+
     if kadar_gas > 50 or status_pintu == 1 or cahaya > 600:
         status = "Bahaya"
-    elif suhu < 2.0 or suhu > 8.0 or cahaya > 300:
+    elif suhu < 2.0 or suhu > 8.0 or kelembapan < 35.0 or kelembapan > 60.0 or cahaya > 300:
         status = "Peringatan"
     else:
         status = "Aman"
 
     now_ts = time.time()
+    wib_now = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=7)))
     # ponytail: simpan data realtime live di memory RAM agar dashboard web bisa responsif instan tanpa spam database
     _LATEST_LIVE_DATA[device_id] = {
         "device_id": device_id,
@@ -446,8 +462,12 @@ def process_and_save_sensor_data(data: dict, force_save: bool = False):
         "cahaya": cahaya,
         "status_pintu": status_pintu,
         "status_uv": status_uv,
+        "status_kipas": status_kipas,
+        "status_pompa": status_pompa,
+        "status_buzzer": status_buzzer,
+        "manual_buzzer": bool(data.get("manual_buzzer", False)),
         "status": status,
-        "waktu": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "waktu": wib_now.strftime("%Y-%m-%d %H:%M:%S")
     }
 
     if not force_save:
@@ -1017,6 +1037,9 @@ def control_actuator(device: str, req: ActuatorControlRequest, _user: dict = Dep
 
     pub1 = publish_mqtt(topic_specific, payload_specific)
     pub2 = publish_mqtt(topic_generic, payload_generic)
+    if device_name == "buzzer":
+        plain_cmd = "BUZZER_ON" if req.state else "BUZZER_OFF"
+        publish_mqtt(topic_generic, plain_cmd)
 
     return {
         "success": pub1 or pub2,

@@ -154,6 +154,7 @@ class SensorProvider extends ChangeNotifier {
     _device1Data = _device1Data.copyWith(statusBuzzer: nextState);
     _buzzerActive = nextState == 1;
     _mqttService.publish('pharma/control/device_1', '{"actuator":"buzzer","state":$nextState}');
+    _mqttService.publish('pharma/control/device_1', nextState == 1 ? 'BUZZER_ON' : 'BUZZER_OFF');
     _mqttService.publish('pharma/control/buzzer', '{"device_id":"device_1","state":$nextState}');
     notifyListeners();
     return true;

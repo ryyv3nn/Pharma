@@ -363,7 +363,7 @@ class RealtimePage extends StatelessWidget {
               child: _buildMetricTile(
                 title: 'Sensor Cahaya (LDR)',
                 value: '${sensor.cahaya.toStringAsFixed(0)} Lux',
-                subtitle: sensor.cahaya < 80 ? 'Gudang Gelap (Aman)' : 'Cahaya Terang (Terbuka)',
+                subtitle: sensor.cahaya <= 300 ? 'Cahaya Optimal (<300 Lux)' : 'Cahaya Berlebih (>300 Lux)',
                 icon: Icons.light_mode_outlined,
                 valueColor: AppColors.textDark,
                 iconColor: AppColors.warningAmber,
