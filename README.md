@@ -44,7 +44,7 @@
 Pharma/
 ├── assets/
 │   ├── images/                     # Denah ruang vaksin & aset gambar
-│   └── models/                     # Model 3D Digital Twin (.glb)
+│   └── models/                     # Model 3D (.glb)
 ├── backend/
 │   ├── .env.example                # Contoh konfigurasi environment backend
 │   ├── dashboard.html              # Web Admin Panel & Live Dashboard
@@ -59,7 +59,7 @@ Pharma/
 │       ├── device2_sketch.ino      # Simulasi Wokwi Node 2 (PIR, Reed Switch, HC-SR04, UV-C)
 │       └── wokwi_diagram.json      # Skema rangkaian Wokwi Node 2
 ├── lib/                            # Source code aplikasi Flutter
-│   ├── models/                     # Model data sensor & normalisasi payload
+│   ├── models/                     # Model data sensor & payload
 │   ├── providers/                  # State management (MQTT + REST + thresholds + history)
 │   ├── services/                   # Klien HTTP, MQTT, storage lokal, OTA updater
 │   ├── theme/                      # Token warna & tipografi
