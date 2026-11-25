@@ -47,3 +47,14 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Secrets, local env, binaries & agent notes
+.env
+backend/.env
+backend/.secret_key
+backend/.db_pass
+*.apk
+*.zip
+hermes_*
+SKILLS_INDEX.md
+agy_export.md

@@ -34,7 +34,7 @@ class AppUpdateInfo {
 // Pemeriksa pembaruan lewat GitHub Releases.
 // Versi lebih baru -> unduh APK -> serahkan ke installer Android.
 class UpdateService {
-  static const String _repo = 'Rextt1122/Pharma';
+  static const String _repo = 'ryyv3nn/Pharma';
   static const String _latestReleaseApi =
       'https://api.github.com/repos/$_repo/releases/latest';
 

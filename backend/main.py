@@ -49,14 +49,23 @@ app.add_middleware(
 # (192.168.33.10) saat demo; nilai dapat ditimpa lewat environment variable
 # agar tidak perlu mengubah kode saat pindah host.
 DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
+DB_USER = os.getenv("DB_USER", "root")
+DB_PASS = os.getenv("DB_PASS", "")
+DB_NAME = os.getenv("DB_NAME", "pbl_db")
 MQTT_HOST = os.getenv("MQTT_HOST", "192.168.33.10")
+
+if not DB_PASS:
+    _db_pass_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".db_pass")
+    if os.path.exists(_db_pass_file):
+        with open(_db_pass_file, "r", encoding="utf-8") as _f:
+            DB_PASS = _f.read().strip()
 
 DB_CONFIG = {
     "host": DB_HOST,
     "port": 3306,
-    "user": "root",
-    "password": "fabian100607",
-    "database": "pbl_db",
+    "user": DB_USER,
+    "password": DB_PASS,
+    "database": DB_NAME,
     "pool_name": "mypool",
     "pool_size": 5,
     "time_zone": "+07:00"
@@ -77,9 +86,9 @@ def get_db():
     return mysql.connector.connect(
         host=DB_HOST,
         port=3306,
-        user="root",
-        password="fabian100607",
-        database="pbl_db",
+        user=DB_USER,
+        password=DB_PASS,
+        database=DB_NAME,
         time_zone="+07:00"
     )
 
