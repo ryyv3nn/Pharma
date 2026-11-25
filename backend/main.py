@@ -453,9 +453,32 @@ def process_and_save_sensor_data(data: dict, force_save: bool = False):
     except (ValueError, TypeError):
         status_buzzer = 0
 
+    raw_pir = data.get("deteksi_gerak", data.get("pir", data.get("gerak", data.get("gerakan", 0))))
+    if isinstance(raw_pir, bool):
+        deteksi_gerak = 1 if raw_pir else 0
+    else:
+        try:
+            deteksi_gerak = 1 if str(raw_pir).lower() in ("1", "true") else 0
+        except Exception:
+            deteksi_gerak = 0
+
+    try:
+        status_led = int(data.get("status_led", data.get("led", 0)))
+    except (ValueError, TypeError):
+        status_led = 0
+
+    try:
+        raw_jarak = data.get("jarak_stok", data.get("jarak", data.get("distance", 0.0)))
+        jarak_stok = float(raw_jarak) if raw_jarak is not None else 0.0
+    except (ValueError, TypeError):
+        jarak_stok = 0.0
+
+    has_climate = (data.get("suhu") is not None or data.get("temperature_ds18b20") is not None or data.get("temperature_dht") is not None)
     if kadar_gas > 50 or status_pintu == 1 or cahaya > 600:
         status = "Bahaya"
-    elif suhu < 2.0 or suhu > 8.0 or kelembapan < 35.0 or kelembapan > 60.0 or cahaya > 300:
+    elif device_id == "device_2" and not has_climate:
+        status = "Peringatan" if deteksi_gerak == 1 else "Aman"
+    elif suhu < 2.0 or suhu > 8.0 or kelembapan < 35.0 or kelembapan > 60.0 or cahaya > 300 or deteksi_gerak == 1:
         status = "Peringatan"
     else:
         status = "Aman"
@@ -474,6 +497,10 @@ def process_and_save_sensor_data(data: dict, force_save: bool = False):
         "status_kipas": status_kipas,
         "status_pompa": status_pompa,
         "status_buzzer": status_buzzer,
+        "deteksi_gerak": deteksi_gerak,
+        "gerakan": deteksi_gerak == 1,
+        "status_led": status_led,
+        "jarak_stok": jarak_stok,
         "manual_buzzer": bool(data.get("manual_buzzer", False)),
         "status": status,
         "waktu": wib_now.strftime("%Y-%m-%d %H:%M:%S")
@@ -1046,8 +1073,11 @@ def control_actuator(device: str, req: ActuatorControlRequest, _user: dict = Dep
 
     pub1 = publish_mqtt(topic_specific, payload_specific)
     pub2 = publish_mqtt(topic_generic, payload_generic)
-    if device_name == "buzzer":
-        plain_cmd = "BUZZER_ON" if req.state else "BUZZER_OFF"
+    if device_name in ("buzzer", "fan", "pump", "led"):
+        plain_cmd = f"{device_name.upper()}_{'ON' if req.state else 'OFF'}"
+        publish_mqtt(topic_generic, plain_cmd)
+    elif device_name == "uv":
+        plain_cmd = "START_UV" if req.state else "STOP_UV"
         publish_mqtt(topic_generic, plain_cmd)
 
     return {

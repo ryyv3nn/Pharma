@@ -2763,7 +2763,9 @@
 
       // Update Baris Kartu Device 2 (Steril & Keamanan)
       const d2Pintu = dev2Data ? (dev2Data.status_pintu == 1) : (parseInt(document.getElementById('sim2_pintu')?.value) === 1);
-      const d2Pir = (parseInt(document.getElementById('sim2_pir')?.value) === 1);
+      const d2Pir = dev2Data
+        ? (dev2Data.deteksi_gerak == 1 || dev2Data.gerakan === true || dev2Data.pir == 1)
+        : (parseInt(document.getElementById('sim2_pir')?.value) === 1);
       const d2Uv = dev2Data ? (dev2Data.status_uv == 1) : (parseInt(document.getElementById('sim2_uv')?.value) === 1);
 
       const elD2Door = document.getElementById("valDev2Door");
@@ -2794,7 +2796,13 @@
       const elD2Lock = document.getElementById("valDev2Interlock");
       const elD2Clim = document.getElementById("valDev2Climate");
       if (elD2Clim && dev2Data) {
-        elD2Clim.textContent = `${Number(dev2Data.suhu).toFixed(1)} C • ${Math.round(Number(dev2Data.kelembapan))}%`;
+        if (Number(dev2Data.suhu) > 0 || Number(dev2Data.kelembapan) > 0) {
+          elD2Clim.textContent = `${Number(dev2Data.suhu).toFixed(1)} C • ${Math.round(Number(dev2Data.kelembapan))}%`;
+        } else if (Number(dev2Data.jarak_stok) > 0) {
+          elD2Clim.textContent = `Stok ${Number(dev2Data.jarak_stok).toFixed(0)} cm`;
+        } else {
+          elD2Clim.textContent = 'Ruang Steril';
+        }
       }
       if (d2Pintu || d2Pir) {
         if (elD2Badge) {

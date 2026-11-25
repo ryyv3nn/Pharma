@@ -107,7 +107,7 @@ factory SensorModel.fromJson(
           (json['deteksi_gerak'] as num?)?.toInt() ??
           (json['pir'] as num?)?.toInt() ??
           (json['gerak'] as num?)?.toInt() ??
-          0,
+          (json['gerakan'] == true || json['gerakan'] == 1 || json['gerakan'] == 'true' ? 1 : 0),
       statusPintu:
           (json['status_pintu'] as num?)?.toInt() ??
           (json['pintu'] as num?)?.toInt() ??
