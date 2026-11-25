@@ -395,8 +395,8 @@ DB_SAVE_INTERVAL_SEC = 60  # Simpan log periodik ke DB maksimal 1x per menit (ke
 # Baris disimpan ke sensor_data dengan smart throttle agar DB tidak cepat penuh.
 def process_and_save_sensor_data(data: dict, force_save: bool = False):
     """Pengolahan Data Cloud: Analisis batas aman cold-chain vaksin & gas berbahaya"""
-    device_raw = str(data.get("device_id", data.get("deviceId", data.get("device", "device_1"))))
-    if "dev2" in device_raw.lower() or "device_2" in device_raw.lower():
+    device_raw = str(data.get("device_id", data.get("deviceId", data.get("device", "device_1")))).strip().lower()
+    if any(k in device_raw for k in ("dev2", "device_2", "device2")) or device_raw == "2":
         device_id = "device_2"
     else:
         device_id = "device_1"

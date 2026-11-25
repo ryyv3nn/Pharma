@@ -83,7 +83,8 @@ class MqttService {
             // Payload lama tidak selalu menyertakan device_id, sehingga topik menjadi
             // sumber kebenaran.
             String inferredDeviceId = 'device_1';
-            if (topic.contains('device2') || jsonMap['device_id'] == 'device_2' || jsonMap['device_id'] == '2') {
+            final rawDevId = (jsonMap['device_id'] ?? '').toString().toLowerCase();
+            if (topic.contains('device2') || rawDevId.contains('device_2') || rawDevId.contains('device2') || rawDevId.contains('dev2') || rawDevId == '2') {
               inferredDeviceId = 'device_2';
             }
             // Payload rusak diabaikan diam-diam: satu pesan cacat tidak boleh mematikan

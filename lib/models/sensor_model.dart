@@ -57,9 +57,9 @@ factory SensorModel.fromJson(
         json['deviceId'] as String? ??
         json['device'] as String? ??
         defaultDeviceId;
-    if (devId.toLowerCase().contains('device_1') || devId.toLowerCase().contains('dev1')) {
+    if (devId.toLowerCase().contains('device_1') || devId.toLowerCase().contains('device1') || devId.toLowerCase().contains('dev1')) {
       devId = 'device_1';
-    } else if (devId.toLowerCase().contains('device_2') || devId.toLowerCase().contains('dev2')) {
+    } else if (devId.toLowerCase().contains('device_2') || devId.toLowerCase().contains('device2') || devId.toLowerCase().contains('dev2') || devId.trim() == '2') {
       devId = 'device_2';
     }
 
