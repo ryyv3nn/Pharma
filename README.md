@@ -1,7 +1,7 @@
 # Pharma Medic
 
 > **Smart Pharmaceutical & Vaccine Cold Storage IoT Monitoring**  
-> Sistem pemantauan telemetri rantai dingin (*cold chain* 2–8 °C) dan sterilisasi ruang UV-C gudang farmasi berbasis Internet of Things (IoT).
+> Sistem pemantauan telemetri cold chain dan sterilisasi ruang UV-C gudang farmasi berbasis Internet of Things (IoT).
 
 [![Release](https://img.shields.io/github/v/release/ryyv3nn/Pharma?style=flat-square&color=0E555A)](https://github.com/ryyv3nn/Pharma/releases/latest)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?style=flat-square&logo=flutter)](https://flutter.dev)
@@ -12,7 +12,7 @@
 
 ## Ringkasan Proyek
 
-**Pharma Medic** memantau kestabilan penyimpanan vaksin (*cold storage* `2–8 °C`, kelembapan `35–60 %`, kadar gas `< 50 ppm`, pencahayaan `< 300 Lux`) serta keamanan ruang sterilisasi UV-C (*cleanroom* `15–25 °C`). Data dikirim dari ESP32-S3 melalui **MQTT (Mosquitto)** menuju **FastAPI + MySQL** di Cloud VPS, lalu dipantau secara *real-time* dari **Aplikasi Android (Flutter)** dan **Web Admin Dashboard**.
+**Pharma Medic** memantau kestabilan gudang penyimpanan vaksin (*cold storage* `2–8 °C`, kelembapan `35–60 %`, kadar gas `< 50 ppm`, pencahayaan `< 300 Lux`) serta keamanan ruang sterilisasi UV-C (*cleanroom* `15–25 °C`). Data dikirim dari ESP32-S3 melalui **MQTT (Mosquitto)** menuju **FastAPI + MySQL** di Cloud VPS, lalu dipantau secara *real-time* dari **Aplikasi Android (Flutter)** dan **Web Admin Dashboard**.
 
 ---
 
@@ -20,8 +20,8 @@
 
 - **Real-time Telemetry & Alarm**: Gauge suhu dan kelembapan, deteksi asap/gas (MQ-2), intensitas cahaya (LDR), status pintu (*reed switch*), gerak manusia (PIR), serta kontrol aktuator dua arah (Kipas, Sirine Buzzer + Mute, Pompa Air, Lampu UV-C dengan *Safety Interlock*, LED RGB).
 - **Multi-Node Switching**: Pemantauan terpisah untuk **Device 1** (Rak Vaksin / Cold Storage) dan **Device 2** (Ruang Steril & Keamanan Pintu).
-- **Digital Twin 3D & Denah 2D**: Model 3D gudang interaktif (`model_3d_v2.glb`) dengan fokus kamera per zona serta tampilan Denah 2D.
-- **Web Admin Dashboard**: Pemantauan cluster 4-Node Docker, statistik agregat, kartu live in-memory (`/sensor/latest`), manajemen staf/operator, simulator perangkat, API Tester, serta filter dan export CSV.
+- **3D Model & Denah 2D**: Model 3D gudang (`model_3d_v2.glb`) dengan fokus per zona serta tampilan Denah 2D.
+- **Web Admin Dashboard**: Pemantauan cluster 4-Node Docker, statistik , kartu live in-memory (`/sensor/latest`), manajemen staf/operator, simulator perangkat, API Tester, serta filter dan export CSV.
 - **Riwayat Log & Ekspor CSV**: Penyimpanan otomatis dengan *smart throttling* database (1 log/menit saat stabil, langsung catat saat bahaya/perubahan status) dan export `.csv` dari Mobile maupun Web.
 - **Autentikasi & OTA Update**: Login Operator/User (termasuk dukungan biometrik sidik jari) dan pembaruan APK otomatis melalui GitHub Releases.
 
